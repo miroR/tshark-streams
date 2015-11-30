@@ -75,6 +75,16 @@ else
 		tshark -r "$dump.pcap" -T fields -e tcp.stream | sort -n | uniq
 		STREAMS=$(tshark -r "$dump.pcap" -T fields -e tcp.stream | sort -n | uniq)
 		echo "\$STREAMS: $STREAMS"
+	if [ ! -z "$3" ]; then
+		echo "Trying to make $3 be an option to either:"
+		echo "1) be the selection of streams to work instead of the entire array, or"
+		echo "2) allow giving the selection of streams somehow (don't know how yet),"
+		echo "after they are listed."
+		echo "Only the 1) for now"
+		echo "Give the text file with sole content the list of streams to process:"
+		read selected_streams
+		STREAMS=$(cat selected_streams)
+	fi
 fi
 
 for i in $STREAMS
