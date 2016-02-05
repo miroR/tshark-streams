@@ -163,15 +163,17 @@ do
 		cat ${dump}_s$INDEX.raw \
 		| grep -A1000000000 =================================================================== \
 		> ${dump}_s$INDEX.raw.CLEAN ;
-		wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l) ; echo $wc_l;
-		wc_l_head=$(echo $wc_l-1|bc); echo $wc_l_head;
-		wc_l_tail=$(echo $wc_l_head-5|bc); echo $wc_l_tail;
+		wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l) ; #echo $wc_l;
+		wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
+		wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
 		cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
-		ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
+#		ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
 		cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
 		# To see why and if tshark still does in such way that this work, maybe sometime
 		# in the future, reverse the commenting of these two lines below in particular, and investigate
-		rm -v ${dump}_s$INDEX.raw*
+		rm ${dump}_s$INDEX.raw*
+		echo "Extracted:"
+		ls -l ${dump}_s$INDEX.bin
 		#read FAKE
 
 		tshark -r "$dump.pcap" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
@@ -185,11 +187,13 @@ do
 		wc_l_head=$(echo $wc_l-1|bc); echo $wc_l_head;
 		wc_l_tail=$(echo $wc_l_head-5|bc); echo $wc_l_tail;
 		cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
-		ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
+#		ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
 		cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
 		# To see why and if tshark still does in such way that this work, maybe sometime
 		# in the future, reverse the commenting of these two lines below in particular, and investigate
-		rm -v ${dump}_s${INDEX}-ssl.raw*
+		rm ${dump}_s${INDEX}-ssl.raw*
+		echo "Extracted:"
+		ls -l ${dump}_s$INDEX-ssl.bin
 		#read FAKE
 
 		tshark -r "$dump.pcap" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
