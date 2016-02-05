@@ -43,8 +43,73 @@
 #
 # and should not be used at all.
 #
-# I always name my PCAPs with the .pcap extension. Modify this if you don't.
+
+function show_help {
+  echo "tshark-streams.sh - Extract TCP/SSL streams from PCAP file"
+  echo "Usage: $0 <pcap_file> -Y <filter> -l <list-of-streams> -k <ssl_keylog_file>"
+  echo ""
+  echo -e "    only the pcap_file is mandatory. See below for particular uses though."
+  echo ""
+  echo -e "    -Y a display filter (see 'man tshark')"
+  echo -e "    \t\tif neither -Y nor -l are given, attempt is made to extract all streams"
+  echo -e "    -l a list of streams' numbers, one per line, to extract"
+  echo -e "    \t\tif neither -Y nor -l are given, attempt is made to extract all streams"
+  echo -e "    -k give the filename with the CLIENT_RANDOM... lines that belong to"
+  echo -e "    \t\tthe sessions in the PCAP. If those have been logged in the file"
+  echo -e "    \t\tdesignated by the \$SSLKEYLOGFILE environment variable used during"
+  echo -e "    \t\tFirefox or some other NSS supporting browser's run, all properly set,"
+  echo -e "    \t\tthen you don't need to set this flag"
+}
+
+if [ "$#" -lt 1 ]; then
+    show_help
+    exit 0
+fi
+
+# Reset in case getopts has been used previously in the shell.
+OPTIND=1
+PCAP_FILE=""
+OUTPUT_FILE=""
+PROTOCOL=""
+PROTOSPLIT=""
+
+while getopts "h?p:r:w:s:" opt;
+do
+    case "$opt" in
+    h|\?)
+        show_help
+        exit 0
+        ;;
+    p)  PROTOCOL=$OPTARG
+        ;;
+    r)  PCAP_FILE=$OPTARG
+        ;;
+    w)  OUTPUT_FILE=$OPTARG
+        ;;
+    s)  PROTOSPLIT=$OPTARG
+        ;;
+    esac
+done
+
+# I always name/rename my PCAPs with the .pcap extension. This is probably
+# heresy, but I'll rename your file to that extension. I'm not really a dev, so
+# either fix this for yourself (and send me patches), or take care that your
+# filename does not contain neither spaces nor more than one dot. Also this may
+# not work on symlinks (but if the symlink is with the .pcap extension, it's
+# fine). 
 #
+echo -n \$1: echo $1
+read FAKE
+filen=$(echo $1|cut -d. -f1)
+echo -n \$filen: echo $filen
+ext=$(echo $1|cut -d. -f2)
+filename=$filen.$ext
+echo -n \$filename: echo $filename
+read FAKE
+echo -n \$ext: echo $ext
+if [ $ext != "pcap" ]; then
+	ext="pcap"
+fi
 dump=$(echo $1|sed 's/\.pcap//')
 echo "\$dump.pcap: $dump.pcap"
 
@@ -61,11 +126,6 @@ echo "\$dump.pcap: $dump.pcap"
 # ls -l $tshlog
 # So after something like that, you can start this script with:
 # tshark-streams.sh <pcap-file> |& tee $tshlog
-
-if [ "$#" -lt 1 ]; then
-		echo "Usage: tshark_streams.sh <pcap file> [filter rules]"
-		exit
-fi
 
 if [ ! -z "$2" ]; then
 	echo $2
