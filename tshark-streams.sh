@@ -1,16 +1,14 @@
 #!/bin/bash
 #
-# Based on http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
-#
-# Too busy to do it now, but more complete, and cleaner, tshark-streams.sh
-# program, should in the future be found at:
+# You should probably be able to find this program now at:
 #
 # https://github.com/miroR/tshark-streams.git
 #
-# I tried to post comment about my thread on Wireshark to that Matt's
-# heapspray.net page, but seems there has not been sent to him or something. If
-# you know Matt, tell him to please try and contact me, via github, probably
-# most reliable. The credit I do give here...
+# Based on http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
+#
+# I tried unsuccessfully to contact Matt whose idea I have further developed by
+# posting at his heapspray.net page. If you know Matt, tell him please to try
+# and contact me, via github, probably most reliable.
 #
 # Apart from a recent Wireshark install, xxd (part of vim-core here) is needed.
 #
@@ -22,21 +20,23 @@
 # For the basics of SSL decryption see:
 # https://wiki.wireshark.org/SSL
 #
-# As far as decrypting your own captures (setting the $SSLKEYLOGFILE
-# environment variable etc.), you may try and see how I do it at:
+# where you can learn about setting the $SSLKEYLOGFILE environment variable
+# etc.).
+#
+# As far as decrypting your own captures you may try and see how I do it at:
 # https://github.com/miroR/uncenz
 #
 # Less important links follow (but if any of the links died by the time you
 # read here, do try and tell me --use the uncenz above to be able to prove you
-# tried to contact me by posting the screencast and traffic dump in public (the
-# only way to fight censorship; in Croatia we are still not done at all with
-# the remnants and progenie and metamorphoids of the communist UDBA; UDBA is
-# something like a tiny local NSA, for a short description; and emails/phone
-# calls/other to me/from me have for years been filtered by those subjects and
-# allowed through or disallowed and cut off and thrown out instead)--, and I
-# may be able to post, the information about it, or even the TCP/SSL-extracted
-# streams, with tshark-streams.sh, id est: the same information that previously
-# was in that location, from my uncenz archives, on
+# tried to contact me, if unsuccessful, by posting the screencast and traffic
+# dump in public (the only way to fight censorship; in Croatia we are still not
+# done at all with the remnants and progenie and metamorphoids of the communist
+# UDBA; UDBA is something like a tiny local NSA, for a short description; and
+# emails/phone calls/other to me/from me have for years been filtered by those
+# subjects and allowed through or disallowed and cut off and thrown out
+# instead)--, and I may be able to post, the information about it, or even the
+# TCP/SSL-extracted streams, with tshark-streams.sh, id est: the same
+# information that previously was in that location, from my uncenz archives, on
 # http://www.CroatiaFidelis.hr):
 #
 # My first acquainting myself with SSL decryption was at:
@@ -61,29 +61,33 @@
 # http://www.CroatiaFidelis.hr/foss/cap/cap-150927-TLS-why-js/Add-151119/
 #
 # However, neither of those two old scripts, in case you got here via those,
-# not the initial one, that is now named:
+# neither: not the initial one, that is now named:
 #
 # tshark-streams-INCOMPLETE.sh
 #
 # and not either the first improved version, should be used anymore at all.
 #
-# On the other hand, I work so slowly, that I'm currently out of time to clean
-# up this script (and my head already aches from strain to figure out how to do
-# it), which I intend to tag version 0.18 of tshark-streams.sh ...
+# On the other hand, I work so *slowly* (pls. do notice!; e.g. be patient if
+# you try and contact me, could be my slowliness), that I'm currently
+# absolutely out of time to clean up this script very much at all which I
+# intend to tag version 0.18 of tshark-streams.sh ...
 #
-# Ah, I've only managed to get it to work with Bash's own getopts, after
-# pondering over NetMinecraft (thanks Jonathan Racicot!):
+# Ah, I've only just managed to get it to work with Bash's own getopts builtin,
+# after pondering over NetMinecraft (thanks Jonathan Racicot!):
 #
 # https://github.com/InfectedPacket/NetMinecraft
 #
 # (but NetMinecraft was done for the pre-2.0 Wireshark it seems to me, and some
 # of the functionality does not seem to work, or is incomplete as this
-# tshark-streams.sh is)
+# tshark-streams.sh is. The tshark-streams.sh is, in contrast to NetMinecraft,
+# only dealing with the record layer, at least for now. The two could be
+# complimentary.)
 #
-# Use this script absolutely at your own risk! ...However, it works for me (mostly).
+# Use this script absolutely at your own risk!# I guarrantee nothing to you
+# regarding anything at all, usefulness or goodness or anything
+# in/from/connected to this script.
 #
-# I guarrantee nothing to you regarding anything at all, usefulness or goodness
-# or anything in/from/connected to this script.
+# That said, I stress that it works fine for me (mostly).
 #
 # Released under BSD license, pls. see LICENSE, attached to this script (if
 # not, it's under a generic BSD GNU-compatible license)
@@ -92,27 +96,24 @@
 #
 
 function show_help {
-  echo "tshark-streams.sh - Extract TCP/SSL streams from $PCAP_FILE"
+  echo "tshark-streams.sh - Extract TCP/SSL streams from \$PCAP_FILE"
   echo "Usage: $0 <PCAP file> -Y <filter> -l <list-of-streams> -k <ssl.keylog_file>"
   echo ""
   echo -e "    This script is very dirty and in testing phase. No warrnties."
   echo -e "    Advanced users or very careful and very hardworking newbies only!"
-  echo -e "    \t\t\t!!!! You have been warned !!!!"
+  echo -e "    \t\t!!!! You have been warned !!!!"
+  echo ""
+  echo -e "    \tIf neither -Y nor -l are given, attempt is made to extract all streams"
+  echo -e "    \tNOTE: the -Y and -l probably don't work together"
   echo ""
   echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone). See below"
   echo -e "    \tfor particular uses though"
-  echo -e "    -Y a simple display filter (see 'man tshark', example"
-  echo -e "    \tempty) -Y \"tcp.stream==N\" where N is number from among available"
+  echo -e "    -Y a simple display filter (see 'man tshark', exampli gratia:"
+  echo -e "    \t) -Y \"tcp.stream==N\" where N is a number from among the available"
   echo -e "    \tfor your \$PCAP_FILE"
-  echo -e "    \tNOTE: just checked: can't get an filter as above to work at this time,"
-  echo -e "    \t single tcp.stream==N[N][N] works though)"
-  echo -e "    \tIf neither -Y nor -l are given, attempt is made to extract all streams"
-  echo -e "    \tNOTE: the -Y and -l probably don't work together"
   echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
-  echo -e "    \t\${dump}_streams.ls-1 file gotten from say partial all-extraction run"
-  echo -e "    \tto pick from)"
-  echo -e "    \tif neither -Y nor -l are given, attempt is made to extract all streams"
-  echo -e "    \tNOTE: the -Y and -l probably don't work together"
+  echo -e "    \t\${dump}_streams.ls-1 file gotten from, maybe interrupted (for now),"
+  echo -e "    \tall-extraction run to pick from)"
   echo -e "    -k give the filename with the CLIENT_RANDOM... lines that belong to"
   echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
   echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (currently"
@@ -121,13 +122,13 @@ function show_help {
   echo -e "    \tthen you don't need to set this flag"
 }
 
-if [ "$#" -lt 1 ]; then
+if [ $# -eq 0 ]; then
     show_help
     exit 0
 fi
 
 # Reset in case getopts has been used previously in the shell.
-OPTIND=1
+OPTIND=1	# Frankly, don't understand yet the OPTIND, nor if it is needed here.
 DISPLAYFILTER=""
 STREAMSLIST=""
 KEYLOGFILE=""
@@ -141,10 +142,14 @@ do
         ;;
     r)  PCAP_FILE=$OPTARG
     echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
-    read FAKE # This isn't really used for reading any. But for the user to see
-	# how the sript is faring and hit Enter (or Ctrl-C if something went wrong)!
+    read FAKE # The 'read FAKE' lines aren't really used for reading anything.
+	# It's for the user to follow and decide how the sript is faring and hit
+	# Enter (or Ctrl-C if something went wrong)! Teach me a better trick instead!
+	# This is not a completed and polished script.
         ;;
     Y)  DISPLAYFILTER=$OPTARG
+    echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
+    read FAKE
         ;;
     l)  STREAMSLIST=$OPTARG
     echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
@@ -178,12 +183,18 @@ read FAKE
 echo -n \$ext: echo $ext
 
 # I like to have a log to look up. Some PCAPs are slow to work. Need to know at
-# what stage the work is. (UPDATE: There is however the ${dump}_streams.ls-1 that gets created
-# at the start though, so maybe this tip is not needed.)
-# And I was finishing lots of line with "|& tee -a $tshlog". No. Clutters too much.
-# Better to add such a redirection to the very command issued when starting the script.
-# Something like the commented lines below (previously written for the further
-# above purpose, so adapt them, if you need such logging).
+# what stage the work is.
+#
+###############################################################################
+###  (UPDATE: There is however the ${dump}_streams.ls-1 that gets created  ####
+###  at the start though, so maybe this commented-out tip is not needed.)                ####
+###############################################################################
+#
+# And I was finishing lots of line with "|& tee -a $tshlog". No. Clutters too
+# much.  Better to add such a redirection to the very command issued when
+# starting the script.  Something like the commented lines below (previously
+# written for the further above purpose, so adapt them, if you need such
+# logging).
 # tshlog=tsh-$(date +%y%m%d_%H%M).log
 # export tshlog
 # touch $tshlog
@@ -199,7 +210,8 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 #	echo "\$STREAMS: $STREAMS"
 	echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
 	echo "############################################################"
-	echo "( The list of stream numbers is in:"
+	echo "The list of stream numbers contained in the \$PCAP_FILE:"
+	echo "$PCAP_FILE is listed in:"
 	ls -l ${dump}_streams.ls-1
 	echo "############################################################"
 	read FAKE
@@ -217,9 +229,7 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 	fi
 else
 	echo "tshark -o "ssl.keylog_file: $KEYLOGFILE" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
-#	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq
 	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
-#	echo "\$STREAMS: $STREAMS"
 
 	if [ ! -z "$STREAMSLIST" ]; then
 		echo \$STREAMSLIST
@@ -231,6 +241,10 @@ else
 		read FAKE
 		echo "\$STREAMS: $STREAMS"
 		read FAKE
+		if [ -e "${dump}_streams.ls-1" ]; then
+			# backing up the list of stream numbers if previously made
+			cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+		fi
 	else
 		echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
 		read FAKE
