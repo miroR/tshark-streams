@@ -95,19 +95,28 @@ function show_help {
   echo "tshark-streams.sh - Extract TCP/SSL streams from $PCAP_FILE"
   echo "Usage: $0 <PCAP file> -Y <filter> -l <list-of-streams> -k <ssl.keylog_file>"
   echo ""
-  echo -e "    -r $PCAP_FILE is mandatory (but may not do it alone). See below"
+  echo -e "    This script is very dirty and in testing phase. No warrnties."
+  echo -e "    Advanced users or very careful and very hardworking newbies only!"
+  echo -e "    \t\t\t!!!! You have been warned !!!!"
+  echo ""
+  echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone). See below"
   echo -e "    \tfor particular uses though"
-  echo -e "    -Y a display filter (see 'man tshark', example:"
-  echo -e "    \t-Y \"tcp.stream==0 && ssl.handshake\")"
+  echo -e "    -Y a simple display filter (see 'man tshark', example"
+  echo -e "    \tempty) -Y \"tcp.stream==N\" where N is number from among available"
+  echo -e "    \tfor your \$PCAP_FILE"
+  echo -e "    \tNOTE: just checked: can't get an filter as above to work at this time,"
+  echo -e "    \t single tcp.stream==N[N][N] works though)"
   echo -e "    \tIf neither -Y nor -l are given, attempt is made to extract all streams"
   echo -e "    \tNOTE: the -Y and -l probably don't work together"
   echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
-  echo -e "    \${dump}_streams.ls-1 file to pick from)"
-  echo -e "    \tNOTE: the -Y and -l probably don't work together"
+  echo -e "    \t\${dump}_streams.ls-1 file gotten from say partial all-extraction run"
+  echo -e "    \tto pick from)"
   echo -e "    \tif neither -Y nor -l are given, attempt is made to extract all streams"
+  echo -e "    \tNOTE: the -Y and -l probably don't work together"
   echo -e "    -k give the filename with the CLIENT_RANDOM... lines that belong to"
   echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
-  echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable used during"
+  echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (currently"
+  echo -e "    \thard-wired to value: /home/<you>/.sslkey.log) used during"
   echo -e "    \tFirefox or some other NSS supporting browser's run, all properly set,"
   echo -e "    \tthen you don't need to set this flag"
 }
@@ -132,7 +141,8 @@ do
         ;;
     r)  PCAP_FILE=$OPTARG
     echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
-    read FAKE
+    read FAKE # This isn't really used for reading any. But for the user to see
+	# how the sript is faring and hit Enter (or Ctrl-C if something went wrong)!
         ;;
     Y)  DISPLAYFILTER=$OPTARG
         ;;
@@ -234,7 +244,7 @@ for i in $STREAMS; do
 
 	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
 
-	ls -l ${dump}_s$INDEX.raw
+#	ls -l ${dump}_s$INDEX.raw
 	cat ${dump}_s$INDEX.raw \
 	| grep -A1000000000 =================================================================== \
 	> ${dump}_s$INDEX.raw.CLEAN ;
@@ -242,7 +252,7 @@ for i in $STREAMS; do
 	wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
 	wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
 	cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
-	ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
+#	ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
 	cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
 	# To see why and if tshark still does in such way that this work, maybe sometime
 	# in the future, reverse the commenting of these two lines below in particular, and investigate
@@ -263,7 +273,7 @@ for i in $STREAMS; do
 	wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
 	wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
 	cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
-	ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
+#	ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
 	cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
 	# To see why and if tshark still does in such way that this work, maybe sometime
 	# in the future, reverse the commenting of these two lines below in particular, and investigate
@@ -276,7 +286,3 @@ for i in $STREAMS; do
 	echo "Extracted:"
 	ls -l ${dump}_s$INDEX-ssl.txt
 done
-
-echo "( The list of stream numbers is in:"
-ls -l ${dump}_streams.ls-1
-echo ")"
