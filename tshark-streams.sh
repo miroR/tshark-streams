@@ -12,8 +12,8 @@
 # you know Matt, tell him to try and contact me, via github, probably most
 # reliable. 
 #
-# This will extract all, if arg *not* $2 given, or those in the arg $2, tcp/ssl
-# streams from your pcap file.
+# If option "-Y $DISPLAYFILTER" is *not* given, this script will extract all
+# tcp/ssl streams from your pcap file.
 #
 # Apart from a recent Wireshark install, xxd (part of vim-core here) is needed.
 #
@@ -45,20 +45,21 @@
 #
 
 function show_help {
-  echo "tshark-streams.sh - Extract TCP/SSL streams from PCAP file"
-  echo "Usage: $0 <pcap_file> -Y <filter> -l <list-of-streams> -k <ssl_keylog_file>"
+  echo "tshark-streams.sh - Extract TCP/SSL streams from $PCAP_FILE"
+  echo "Usage: $0 <PCAP file> -Y <filter> -l <list-of-streams> -k <ssl.keylog_file>"
   echo ""
-  echo -e "    only the pcap_file is mandatory. See below for particular uses though."
-  echo ""
+  echo -e "    -r $PCAP_FILE is mandatory (but may not do it alone). See below"
+  echo -e "    \tfor particular uses though"
   echo -e "    -Y a display filter (see 'man tshark')"
-  echo -e "    \t\tif neither -Y nor -l are given, attempt is made to extract all streams"
-  echo -e "    -l a list of streams' numbers, one per line, to extract"
-  echo -e "    \t\tif neither -Y nor -l are given, attempt is made to extract all streams"
+  echo -e "    \tif neither -Y nor -l are given, attempt is made to extract all streams"
+  echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
+  echo -e "    \${dump}_streams.ls-1 file to pick from)"
+  echo -e "    \tif neither -Y nor -l are given, attempt is made to extract all streams"
   echo -e "    -k give the filename with the CLIENT_RANDOM... lines that belong to"
-  echo -e "    \t\tthe sessions in the PCAP. If those have been logged in the file"
-  echo -e "    \t\tdesignated by the \$SSLKEYLOGFILE environment variable used during"
-  echo -e "    \t\tFirefox or some other NSS supporting browser's run, all properly set,"
-  echo -e "    \t\tthen you don't need to set this flag"
+  echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
+  echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable used during"
+  echo -e "    \tFirefox or some other NSS supporting browser's run, all properly set,"
+  echo -e "    \tthen you don't need to set this flag"
 }
 
 if [ "$#" -lt 1 ]; then
@@ -68,50 +69,59 @@ fi
 
 # Reset in case getopts has been used previously in the shell.
 OPTIND=1
-PCAP_FILE=""
-OUTPUT_FILE=""
-PROTOCOL=""
-PROTOSPLIT=""
+DISPLAYFILTER=""
+STREAMSLIST=""
+KEYLOGFILE=""
 
-while getopts "h?p:r:w:s:" opt;
+while getopts "h?r:Y:l:k:" opt;
 do
     case "$opt" in
     h|\?)
         show_help
         exit 0
         ;;
-    p)  PROTOCOL=$OPTARG
-        ;;
     r)  PCAP_FILE=$OPTARG
+    echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
+    read FAKE
         ;;
-    w)  OUTPUT_FILE=$OPTARG
+    Y)  DISPLAYFILTER=$OPTARG
         ;;
-    s)  PROTOSPLIT=$OPTARG
+    l)  STREAMSLIST=$OPTARG
+    echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
+    read FAKE
+        ;;
+    k)  KEYLOGFILE=$OPTARG
+    echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
+    read FAKE
         ;;
     esac
 done
 
-# I always name/rename my PCAPs with the .pcap extension. This is probably
-# heresy, but I'll rename your file to that extension. I'm not really a dev, so
-# either fix this for yourself (and send me patches), or take care that your
-# filename does not contain neither spaces nor more than one dot. Also this may
-# not work on symlinks (but if the symlink is with the .pcap extension, it's
-# fine). 
-#
-echo -n \$1: echo $1
+echo \$SSLKEYLOGFILE: $SSLKEYLOGFILE
+if [ "$KEYLOGFILE" == "" ]; then
+	KEYLOGFILE=$SSLKEYLOGFILE
+fi
+echo \$KEYLOGFILE: $KEYLOGFILE
 read FAKE
-filen=$(echo $1|cut -d. -f1)
-echo -n \$filen: echo $filen
-ext=$(echo $1|cut -d. -f2)
-filename=$filen.$ext
+
+#
+echo -n \$PCAP_FILE: echo $PCAP_FILE
+read FAKE
+dump=$(echo $PCAP_FILE|cut -d. -f1)
+echo -n \$dump: echo $dump
+read FAKE
+ext=$(echo $PCAP_FILE|cut -d. -f2)
+echo -n \$ext: echo $ext
+read FAKE
+filename=$dump.$ext
 echo -n \$filename: echo $filename
 read FAKE
 echo -n \$ext: echo $ext
-if [ $ext != "pcap" ]; then
-	ext="pcap"
-fi
-dump=$(echo $1|sed 's/\.pcap//')
-echo "\$dump.pcap: $dump.pcap"
+#if [ $ext != "pcap" ]; then
+#	ln -s $dump.$ext $dump.pcap
+#fi
+#dump=$(echo $1|sed 's/\.pcap//')
+#echo "\$dump.pcap: $dump.pcap"
 
 # I like to have a log to look up. Some PCAPs are slow to work. Need to know at
 # what stage the work is.
@@ -127,28 +137,56 @@ echo "\$dump.pcap: $dump.pcap"
 # So after something like that, you can start this script with:
 # tshark-streams.sh <pcap-file> |& tee $tshlog
 
-if [ ! -z "$2" ]; then
-	echo $2
+if [ ! -z "$DISPLAYFILTER" ]; then
+	echo $DISPLAYFILTER
 	read FAKE
-	if [ "$2" != "_" ]; then
-		STREAMS=$(tshark -r "$dump.pcap" -Y "$2" -T fields -e tcp.stream | sort -n | uniq)
-		echo "\$STREAMS: $STREAMS"
-	elif [ ! -z "$3" ]; then
-		echo "Trying to make $3 be an option to either:"
-		echo "1) be the selection of streams to work instead of the entire array, or"
-		echo "2) allow giving the selection of streams somehow (don't know how yet),"
-		echo "after they are listed."
-		echo "Only the 1) for now"
-		echo "Give the text file with sole content the list of streams to process:"
-		read selected_streams
-		STREAMS=$(cat $selected_streams)
-		else "This suboption not accounted for yet."
-	fi
+	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
+#	echo "\$STREAMS: $STREAMS"
+	echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
+	read FAKE
+
+if [ ! -z "$STREAMSLIST" ]; then
+	echo \$STREAMSLIST
+	read FAKE
+	echo \$STREAMSLIST: $STREAMSLIST
+	read FAKE
+	STREAMS=$(cat $STREAMSLIST)
+	echo \$STREAMS
+	read FAKE
+	echo "\$STREAMS: $STREAMS"
+	read FAKE
+fi
+#	elif [ ! -z "$3" ]; then
+#		echo "Trying to make $3 be an option to either:"
+#		echo "1) be the selection of streams to work instead of the entire array, or"
+#		echo "2) allow giving the selection of streams somehow (don't know how yet),"
+#		echo "after they are listed."
+#		echo "Only the 1) for now"
+#		echo "Give the text file with sole content the list of streams to process:"
+#		read selected_streams
+#		STREAMS=$(cat $selected_streams)
+#		else "This suboption not accounted for yet."
+#	fi
 else
-		echo "tshark -r $dump.pcap -T fields -e tcp.stream | sort -n | uniq"
-		tshark -r "$dump.pcap" -T fields -e tcp.stream | sort -n | uniq
-		STREAMS=$(tshark -r "$dump.pcap" -T fields -e tcp.stream | sort -n | uniq)
+	echo "tshark -o "ssl.keylog_file: $KEYLOGFILE" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
+#	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq
+	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
+#	echo "\$STREAMS: $STREAMS"
+
+	if [ ! -z "$STREAMSLIST" ]; then
+		echo \$STREAMSLIST
+		read FAKE
+		echo \$STREAMSLIST: $STREAMSLIST
+		read FAKE
+		STREAMS=$(cat $STREAMSLIST)
+		echo \$STREAMS
+		read FAKE
 		echo "\$STREAMS: $STREAMS"
+		read FAKE
+	else
+		echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
+		read FAKE
+	fi
 fi
 
 for i in $STREAMS
@@ -157,9 +195,9 @@ do
 		INDEX=`printf '%.3d' $i`
 		echo "Processing stream $INDEX ..."
 
-		tshark -r "$dump.pcap" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
+		tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
 
-		ls -l ${dump}_s$INDEX.raw
+#		ls -l ${dump}_s$INDEX.raw
 		cat ${dump}_s$INDEX.raw \
 		| grep -A1000000000 =================================================================== \
 		> ${dump}_s$INDEX.raw.CLEAN ;
@@ -174,18 +212,19 @@ do
 		rm ${dump}_s$INDEX.raw*
 		echo "Extracted:"
 		ls -l ${dump}_s$INDEX.bin
-		#read FAKE
 
-		tshark -r "$dump.pcap" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
+		tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
+		echo "Extracted:"
+		ls -l ${dump}_s$INDEX.txt
 
-		tshark -r "$dump.pcap" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
+		tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
 
 		cat ${dump}_s${INDEX}-ssl.raw \
 		| grep -A1000000000 =================================================================== \
 		> ${dump}_s${INDEX}-ssl.raw.CLEAN ;
-		wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; echo $wc_l;
-		wc_l_head=$(echo $wc_l-1|bc); echo $wc_l_head;
-		wc_l_tail=$(echo $wc_l_head-5|bc); echo $wc_l_tail;
+		wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
+		wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
+		wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
 		cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
 #		ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
 		cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
@@ -196,6 +235,11 @@ do
 		ls -l ${dump}_s$INDEX-ssl.bin
 		#read FAKE
 
-		tshark -r "$dump.pcap" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
+		tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
+		echo "Extracted:"
+		ls -l ${dump}_s$INDEX-ssl.txt
 
 done
+
+echo "The list of stream numbers is in:"
+ls -l ${dump}_streams.ls-1
