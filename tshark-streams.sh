@@ -9,8 +9,8 @@
 #
 # I tried to post comment about my thread on Wireshark to that Matt's
 # heapspray.net page, but seems there has not been sent to him or something. If
-# you know Matt, tell him to try and contact me, via github, probably most
-# reliable. 
+# you know Matt, tell him to please try and contact me, via github, probably
+# most reliable. The credit I do give here...
 #
 # Apart from a recent Wireshark install, xxd (part of vim-core here) is needed.
 #
@@ -31,12 +31,13 @@
 # tried to contact me by posting the screencast and traffic dump in public (the
 # only way to fight censorship; in Croatia we are still not done at all with
 # the remnants and progenie and metamorphoids of the communist UDBA; UDBA is
-# something like a tiny NSA, for a short description; and emails/phone
+# something like a tiny local NSA, for a short description; and emails/phone
 # calls/other to me/from me have for years been filtered by those subjects and
-# allowed through or disallowed and cut out instead)--, and I'll try and post,
-# the
-# info/SSL-extracted-from-my-archives-same-information-as-previously-was-in-that-location,
-# on http://www.CroatiaFidelis.hr):
+# allowed through or disallowed and cut off and thrown out instead)--, and I
+# may be able to post, the information about it, or even the TCP/SSL-extracted
+# streams, with tshark-streams.sh, id est: the same information that previously
+# was in that location, from my uncenz archives, on
+# http://www.CroatiaFidelis.hr):
 #
 # My first acquainting myself with SSL decryption was at:
 # SSL Decode & My Hard-Earned Advice for SPDY/HTTP2 in Firefox
@@ -57,10 +58,10 @@
 # tshark-streams.sh script in its original directory, where the first improved
 # version of this script is too:
 #
-# LINK HERE
+# http://www.CroatiaFidelis.hr/foss/cap/cap-150927-TLS-why-js/Add-151119/
 #
-# However, neither those two old scripts, in case you got here via those, not
-# the initial one, that is now named:
+# However, neither of those two old scripts, in case you got here via those,
+# not the initial one, that is now named:
 #
 # tshark-streams-INCOMPLETE.sh
 #
@@ -73,10 +74,11 @@
 # Ah, I've only managed to get it to work with Bash's own getopts, after
 # pondering over NetMinecraft (thanks Jonathan Racicot!):
 #
-# LINK HERE
+# https://github.com/InfectedPacket/NetMinecraft
 #
-# (but NetMinecraft was done for the pre-2.0 Wireshark it seems to me, and some of
-# the functionality does not seem to work, or is incomplete)
+# (but NetMinecraft was done for the pre-2.0 Wireshark it seems to me, and some
+# of the functionality does not seem to work, or is incomplete as this
+# tshark-streams.sh is)
 #
 # Use this script absolutely at your own risk! ...However, it works for me (mostly).
 #
