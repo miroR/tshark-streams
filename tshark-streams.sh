@@ -99,20 +99,20 @@ function show_help {
   echo -e "    Advanced users or very careful and very hardworking newbies only!"
   echo -e "    \t\t\t!!!! You have been warned !!!!"
   echo ""
-  echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone). See below"
-  echo -e "    \tfor particular uses though"
-  echo -e "    -Y a simple display filter (see 'man tshark', example"
-  echo -e "    \tempty) -Y \"tcp.stream==N\" where N is number from among available"
-  echo -e "    \tfor your \$PCAP_FILE"
-  echo -e "    \tNOTE: just checked: can't get an filter as above to work at this time,"
-  echo -e "    \t single tcp.stream==N[N][N] works though)"
   echo -e "    \tIf neither -Y nor -l are given, attempt is made to extract all streams"
   echo -e "    \tNOTE: the -Y and -l probably don't work together"
+  echo ""
+  echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone). See below"
+  echo -e "    \tfor particular uses though"
+  echo -e "    -Y a one-pass display filter. See 'man tshark', example"
+  echo -e "    \t-Y \"tcp.stream==N\" where N is number from among available"
+  echo -e "    \tfor your \$PCAP_FILE. Mostly only simple such as single"
+  echo -e "    \ttcp.stream==<number> work here."
+  echo -e "    -R a display filter (see 'man tshark', example"
+  echo -e "    \t-R \"tcp.stream==<number> && ssl.handshake\""
   echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
   echo -e "    \t\${dump}_streams.ls-1 file gotten from say partial all-extraction run"
   echo -e "    \tto pick from)"
-  echo -e "    \tif neither -Y nor -l are given, attempt is made to extract all streams"
-  echo -e "    \tNOTE: the -Y and -l probably don't work together"
   echo -e "    -k give the filename with the CLIENT_RANDOM... lines that belong to"
   echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
   echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (currently"
@@ -129,10 +129,11 @@ fi
 # Reset in case getopts has been used previously in the shell.
 OPTIND=1
 DISPLAYFILTER=""
+DISPLAY2FILTER=""
 STREAMSLIST=""
 KEYLOGFILE=""
 
-while getopts "h?r:Y:l:k:" opt;
+while getopts "h?r:Y:R:l:k:" opt;
 do
     case "$opt" in
     h|\?)
@@ -145,6 +146,12 @@ do
 	# how the sript is faring and hit Enter (or Ctrl-C if something went wrong)!
         ;;
     Y)  DISPLAYFILTER=$OPTARG
+    echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
+    read FAKE
+        ;;
+    R)  DISPLAY2FILTER=$OPTARG
+    echo "gives: -R $DISPLAY2FILTER (\$DISPLAY2FILTER); since \$OPTARG: $OPTARG"
+    read FAKE
         ;;
     l)  STREAMSLIST=$OPTARG
     echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
@@ -215,7 +222,52 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 		echo "\$STREAMS: $STREAMS"
 		read FAKE
 	fi
-else
+fi
+
+if [ ! -z "$DISPLAY2FILTER" ]; then
+	echo $DISPLAY2FILTER
+	read FAKE
+#	tshark -o "ssl.keylog_file: $KEYLOGFILE" -2 -r "$dump.$ext" -R \"$DISPLAY2FILTER\" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
+#	tshark -o "ssl.keylog_file: $KEYLOGFILE" -2 -r "$dump.$ext" -R \"$DISPLAY2FILTER\" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
+	echo "tshark -o "ssl.keylog_file: $KEYLOGFILE" -2 -r "$dump.$ext" -R \"$DISPLAY2FILTER\" -T fields -e data -q \> "${dump}"_s${INDEX}-ssl.raw"
+	read FAKE
+	tshark -o "ssl.keylog_file: $KEYLOGFILE" -2 -r "$dump.$ext" -R "$DISPLAY2FILTER" -T fields -e data -q > "${dump}"_s${INDEX}-ssl.raw
+#	tshark -o "ssl.keylog_file: $KEYLOGFILE" -2 -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
+#	echo "The old attempt: no output, but no errors either:"
+#	echo "tshark -o \"ssl.keylog_file: $KEYLOGFILE\" -2 -r \"$dump.$ext\" -R \"$DISPLAY2FILTER\" -T fields -e tcp.stream | sort -n | uniq"
+#	echo "Won't be running that for complex, more than only \"tcp.stream eq <number>\" filters"
+	read FAKE
+	#STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -2 -r "$dump.$ext" -R "$DISPLAY2FILTER" -T fields -e tcp.stream | sort -n | uniq)
+#	echo "\$STREAMS: $STREAMS"
+	echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
+	echo "############################################################"
+	echo "( The list of stream numbers is in:"
+	ls -l ${dump}_streams.ls-1
+	echo "############################################################"
+	read FAKE
+
+	if [ ! -z "$STREAMSLIST" ]; then
+		echo \$STREAMSLIST
+		read FAKE
+		echo \$STREAMSLIST: $STREAMSLIST
+		read FAKE
+		STREAMS=$(cat $STREAMSLIST)
+		echo \$STREAMS
+		read FAKE
+		echo "\$STREAMS: $STREAMS"
+		read FAKE
+		# Here we back up, if exists, the previous ${dump}_streams.ls-1
+		if [ -e "${dump}_streams.ls-1" ]; then
+			cp -iav ${dump}_streams.ls-1 ${dump}_streams_$(date +%s).ls-1
+			echo "You will be extracting on part of the entire set of tcp streams, so"
+			echo "the existing ${dump}_streams.ls-1, likely from some previous run,"
+			echo "is backed up as probably:"
+			ls -l ${dump}_streams_$(date +%s).ls-1
+		fi
+	fi
+fi
+
+if  [ -z "$DISPLAYFILTER" ] &&  [ -z "$DISPLAY2FILTER" ]; then
 	echo "tshark -o "ssl.keylog_file: $KEYLOGFILE" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
 #	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq
 	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
@@ -233,6 +285,10 @@ else
 		read FAKE
 	else
 		echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
+		echo "############################################################"
+		echo "( The list of stream numbers is in:"
+		ls -l ${dump}_streams.ls-1
+		echo "############################################################"
 		read FAKE
 	fi
 fi
