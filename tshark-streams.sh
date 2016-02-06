@@ -7,8 +7,8 @@
 # Based on http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
 #
 # I tried unsuccessfully to contact Matt whose idea I have further developed by
-# posting at his heapspray.net page. If you know Matt, tell him please to try
-# and contact me, via github, probably most reliable.
+# posting comments at his heapspray.net page. If you know Matt, tell him please
+# to try and contact me, via github, probably most reliable.
 #
 # Apart from a recent Wireshark install, xxd (part of vim-core here) is needed.
 #
@@ -23,21 +23,24 @@
 # where you can learn about setting the $SSLKEYLOGFILE environment variable
 # etc.).
 #
-# As far as decrypting your own captures you may try and see how I do it at:
+# As far as decrypting your own captures, first you have to make them. You may
+# be interested to see how I do it at:
 # https://github.com/miroR/uncenz
 #
 # Less important links follow (but if any of the links died by the time you
-# read here, do try and tell me --use the uncenz above to be able to prove you
-# tried to contact me, if unsuccessful, by posting the screencast and traffic
-# dump in public (the only way to fight censorship; in Croatia we are still not
-# done at all with the remnants and progenie and metamorphoids of the communist
-# UDBA; UDBA is something like a tiny local NSA, for a short description; and
-# emails/phone calls/other to me/from me have for years been filtered by those
-# subjects and allowed through or disallowed and cut off and thrown out
-# instead)--, and I may be able to post, the information about it, or even the
-# TCP/SSL-extracted streams, with tshark-streams.sh, id est: the same
-# information that previously was in that location, from my uncenz archives, on
-# http://www.CroatiaFidelis.hr):
+# read here, do try and tell me --use the uncenz above to be able to show how
+# you tried to contact me, if unsuccessful, by posting the screencast and
+# traffic dump in public [[after longer wait for my reply, see below how I'm
+# very slow]] (the publishing may be the only way to fight censorship; exampli
+# gratia in Croatia we are still not done at all with the remnants and progenie
+# and metamorphoids of the communist UDBA; UDBA is something like a tiny local
+# NSA, for a short description; and emails/phone calls/other to me/from me have
+# for years been filtered by those subjects and allowed through or disallowed
+# and cut off and thrown out instead)--, and if I get your notice I may be able
+# to post, the information about it, or even the TCP/SSL-extracted streams,
+# with this tshark-streams.sh, id est: the same information that previously was
+# in that/those location(s), from my uncenz archives, [I may be able to post
+# it] on http://www.CroatiaFidelis.hr) So, the less important links:
 #
 # My first acquainting myself with SSL decryption was at:
 # SSL Decode & My Hard-Earned Advice for SPDY/HTTP2 in Firefox
@@ -61,7 +64,7 @@
 # http://www.CroatiaFidelis.hr/foss/cap/cap-150927-TLS-why-js/Add-151119/
 #
 # However, neither of those two old scripts, in case you got here via those,
-# neither: not the initial one, that is now named:
+# neither the initial one, that is now named:
 #
 # tshark-streams-INCOMPLETE.sh
 #
@@ -72,25 +75,45 @@
 # absolutely out of time to clean up this script very much at all which I
 # intend to tag version 0.18 of tshark-streams.sh ...
 #
-# Ah, I've only just managed to get it to work with Bash's own getopts builtin,
-# after pondering over NetMinecraft (thanks Jonathan Racicot!):
+# Ah, must not foget to tell: I've only just managed to get it to work with
+# Bash's own getopts builtin, after pondering over NetMinecraft (thanks
+# Jonathan Racicot!):
 #
 # https://github.com/InfectedPacket/NetMinecraft
 #
 # (but NetMinecraft was done for the pre-2.0 Wireshark it seems to me, and some
-# of the functionality does not seem to work, or is incomplete as this
+# of the functionality does not seem to work, or is incomplete as just like this
 # tshark-streams.sh is. The tshark-streams.sh is, in contrast to NetMinecraft,
 # only dealing with the record layer, at least for now. The two could be
 # complimentary.)
 #
-# Use this script absolutely at your own risk!# I guarrantee nothing to you
+# Use this script absolutely at your own risk! I guarrantee nothing to you
 # regarding anything at all, usefulness or goodness or anything
 # in/from/connected to this script.
 #
-# That said, I stress that it works fine for me (mostly).
+# That said, I stress that it works fine for me (in most if not all the testing
+# so far, which however hasn't been intensive).
+#
+# And one more thing: this script is just a systematic first step. The next
+# thing to do is harder: sort the data extracted (get the htmls, css, gifs,
+# pngs etc. extracted and sorted from those streams; Perl is to be employed
+# with its regexps), and troubleshoot the eventual problems. In particular the
+# latter can not be done without the various dissections, the certificates and
+# handshakes, and plethora of other things and aspects, that are not dealt with
+# by this script at all ;-) ...
+#
+# And all those things actually exist in the, nowadays huge, surveillance
+# industry. But we, the honest users who do not want neither to control others
+# nor to be controled, have to make those for us, and publish them for our
+# brothers in *nix ...  Redoing the steps of the secret (and filthy by intended
+# and applied use) knowledge and technology that already exist... What dirty
+# business, such controling of people, the brainwashing, the hiding of events,
+# causes and the realities beyond, but which would traspire to the eyes of the
+# weak had they not been so oppressed... By all that industry of lying and
+# worse!...
 #
 # Released under BSD license, pls. see LICENSE, attached to this script (if
-# not, it's under a generic BSD GNU-compatible license)
+# not, it's under a generic BSD license, which is completely GNU-compatible)
 #
 # Copyright (c) 2016 Croatia Fidelis, Miroslav Rovis, www.CroatiaFidelis.hr
 #
@@ -109,11 +132,11 @@ function show_help {
   echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone). See below"
   echo -e "    \tfor particular uses though"
   echo -e "    -Y a simple display filter (see 'man tshark', exampli gratia:"
-  echo -e "    \t) -Y \"tcp.stream==N\" where N is a number from among the available"
+  echo -e "    \t -Y \"tcp.stream==N\" where N is a number from among the available"
   echo -e "    \tfor your \$PCAP_FILE"
   echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
-  echo -e "    \t\${dump}_streams.ls-1 file gotten from, maybe interrupted (for now),"
-  echo -e "    \tall-extraction run to pick from)"
+  echo -e "    \t\${dump}_streams.ls-1 file gotten from, maybe interrupted (for now,"
+  echo -e "    \t I'm really out of time) all-extraction run to pick from)"
   echo -e "    -k give the filename with the CLIENT_RANDOM... lines that belong to"
   echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
   echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (currently"
@@ -207,7 +230,10 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 	echo $DISPLAYFILTER
 	read FAKE
 	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
-#	echo "\$STREAMS: $STREAMS"
+	if [ -e "${dump}_streams.ls-1" ]; then
+		# backing up the list of stream numbers if previously made
+		cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+	fi
 	echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
 	echo "############################################################"
 	echo "The list of stream numbers contained in the \$PCAP_FILE:"
@@ -246,7 +272,16 @@ else
 			cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
 		fi
 	else
+		if [ -e "${dump}_streams.ls-1" ]; then
+			# backing up the list of stream numbers if previously made
+			cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+		fi
 		echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
+		echo "############################################################"
+		echo "The list of stream numbers contained in the \$PCAP_FILE:"
+		echo "$PCAP_FILE is listed in:"
+		ls -l ${dump}_streams.ls-1
+		echo "############################################################"
 		read FAKE
 	fi
 fi
