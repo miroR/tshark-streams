@@ -6,6 +6,11 @@
 #
 # Based on http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
 #
+# tshark-streams may not work in case your Wireshark has not been patched,
+# in >wireshark-2.0.2, tshark follow ssl stream segfaults
+# https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12616
+# (applies to older versions only, by now).
+#
 # I tried unsuccessfully to contact Matt whose idea I have further developed by
 # posting comments at his heapspray.net page. If you know Matt, tell him please
 # to try and contact me, via github, probably most reliable.
@@ -193,18 +198,25 @@ fi
 echo \$KEYLOGFILE: $KEYLOGFILE
 read FAKE
 
-echo -n \$PCAP_FILE: echo $PCAP_FILE
+echo -n \$PCAP_FILE: $PCAP_FILE
 read FAKE
-dump=$(echo $PCAP_FILE|cut -d. -f1)
-echo -n \$dump: echo $dump
-read FAKE
-ext=$(echo $PCAP_FILE|cut -d. -f2)
-echo -n \$ext: echo $ext
-read FAKE
+# Files can have a few dots, this is how I'll take the last as separator.
+num_dots=$(echo $PCAP_FILE|sed 's/\./\n/g'| wc -l)
+num_dots_min_1=$(echo $num_dots - 1 | bc)
+echo \$num_dots: $num_dots
+echo \$num_dots_min_1: $num_dots_min_1
+ext=$(echo $PCAP_FILE|cut -d. -f $num_dots)
+echo \$ext: $ext
+#read FAKE
+echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/"
+dump=$(echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/")
+echo \$dump: $dump
+#read FAKE
 filename=$dump.$ext
-echo -n \$filename: echo $filename
+echo \$filename: $filename
+#read FAKE
+echo \$ext: $ext
 read FAKE
-echo -n \$ext: echo $ext
 
 # I like to have a log to look up. Some PCAPs are slow to work. Need to know at
 # what stage the work is.
