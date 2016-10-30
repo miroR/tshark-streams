@@ -171,24 +171,28 @@ do
         ;;
     r)  PCAP_FILE=$OPTARG
     echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
-    read FAKE # The 'read FAKE' lines aren't really used for reading anything.
-	# It's for the user to follow and decide how the sript is faring and hit
-	# Enter (or Ctrl-C if something went wrong)! Teach me a better trick instead!
-	# This is not a completed and polished script.
         ;;
     Y)  DISPLAYFILTER=$OPTARG
     echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
-    read FAKE
+    #read FAKE
         ;;
     l)  STREAMSLIST=$OPTARG
     echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
-    read FAKE
+    #read FAKE
         ;;
     k)  KEYLOGFILE=$OPTARG
     echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
-    read FAKE
+    #read FAKE
         ;;
     esac
+    read FAKE # The 'read FAKE' lines aren't really used for reading anything.
+	# It's for the user to follow and decide how the sript is faring and hit
+	# Enter (or Ctrl-C if something went wrong)! Teach me a better trick
+	# instead!
+	# They are also there for uncommenting when you need to manually debug the
+	# script to see what may have gone wrong. Say, simply:
+	# cat <script>|sed 's/#readme FAKE/readme FAKE/' > <script_tmp> etc.
+	# This is not a completed and polished script.
 done
 
 echo \$SSLKEYLOGFILE: $SSLKEYLOGFILE
@@ -196,10 +200,10 @@ if [ "$KEYLOGFILE" == "" ]; then
 	KEYLOGFILE=$SSLKEYLOGFILE
 fi
 echo \$KEYLOGFILE: $KEYLOGFILE
-read FAKE
+#read FAKE
 
 echo -n \$PCAP_FILE: $PCAP_FILE
-read FAKE
+#read FAKE
 # Files can have a few dots, this is how I'll take the last as separator.
 num_dots=$(echo $PCAP_FILE|sed 's/\./\n/g'| wc -l)
 num_dots_min_1=$(echo $num_dots - 1 | bc)
@@ -240,7 +244,7 @@ read FAKE
 # tshark-streams.sh <pcap-file> |& tee $tshlog
 
 if [ ! -z "$DISPLAYFILTER" ]; then
-	echo $DISPLAYFILTER
+	echo \$DISPLAYFILTER: $DISPLAYFILTER
 	read FAKE
 	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
 	if [ -e "${dump}_streams.ls-1" ]; then
@@ -257,12 +261,12 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 
 	if [ ! -z "$STREAMSLIST" ]; then
 		echo \$STREAMSLIST
-		read FAKE
+		#read FAKE
 		echo \$STREAMSLIST: $STREAMSLIST
-		read FAKE
+		#read FAKE
 		STREAMS=$(cat $STREAMSLIST)
 		echo \$STREAMS
-		read FAKE
+		#read FAKE
 		echo "\$STREAMS: $STREAMS"
 		read FAKE
 	fi
@@ -272,12 +276,12 @@ else
 
 	if [ ! -z "$STREAMSLIST" ]; then
 		echo \$STREAMSLIST
-		read FAKE
+		#read FAKE
 		echo \$STREAMSLIST: $STREAMSLIST
-		read FAKE
+		#read FAKE
 		STREAMS=$(cat $STREAMSLIST)
 		echo \$STREAMS
-		read FAKE
+		#read FAKE
 		echo "\$STREAMS: $STREAMS"
 		read FAKE
 		if [ -e "${dump}_streams.ls-1" ]; then
