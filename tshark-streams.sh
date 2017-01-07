@@ -122,12 +122,25 @@
 #
 # Copyright (c) 2016 Croatia Fidelis, Miroslav Rovis, www.CroatiaFidelis.hr
 #
+# TIP: If you issue a redirection to the very command issued when starting the
+# script, something like these commented-out lines:
+# tshlog=tsh-$(date +%y%m%d_%H%M).log # (tshlog for "tshark log")
+# export tshlog
+# touch $tshlog
+# echo "\$tshlog: $tshlog"
+# ls -l $tshlog
+# and then start this script with:
+# tshark-streams.sh -r <pcap-file> <...> |& tee $tshlog
+# you get it all logged, Could be useful, if I echoed all the commands before
+# they ran, as it would be a boon for newbies to learn: the commands from the
+# logs could then be copied and pasted and run separately. Too much work,
+# echoed only some...
 
 function show_help {
   echo "tshark-streams.sh - Extract TCP/SSL streams from \$PCAP_FILE"
   echo "Usage: $0 -r <PCAP file> -k <ssl.keylog_file> -l <list-of-streams> -Y <single-stream>"
   echo ""
-  echo -e "    This script is very dirty and in testing phase. No warrnties."
+  echo -e "    This script is very dirty and in testing phase. No warranties."
   echo -e "    Advanced users or very careful and very hardworking newbies only!"
   echo -e "    \t\t!!!! You have been warned !!!!"
   echo ""
@@ -147,8 +160,12 @@ function show_help {
   echo -e "    \t I'm really out of time) all-extraction run to pick from)"
   echo -e "    -Y a single stream number display filter (see 'man tshark', exampli gratia:"
   echo -e "    \t -Y \"tcp.stream==N\" where N is a number from among the available"
-  echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression, not time"
+  echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression, no time"
   echo -e "    \tto fix this)"
+  echo ""
+#  echo -e "    \tThere's a few times for you to hit Enter, to get going, to allow you"
+#  echo -e "    \tto view this script and what it is doing in another terminal..."
+#  echo -e "    \tPls. read more explanation in the script."
 }
 
 if [ $# -eq 0 ]; then
@@ -170,29 +187,21 @@ do
         exit 0
         ;;
     r)  PCAP_FILE=$OPTARG
-    echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
+    #echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
         ;;
     Y)  DISPLAYFILTER=$OPTARG
-    echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
+    #echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
     #read FAKE
         ;;
     l)  STREAMSLIST=$OPTARG
-    echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
+    #echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
     #read FAKE
         ;;
     k)  KEYLOGFILE=$OPTARG
-    echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
+    #echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
     #read FAKE
         ;;
     esac
-    read FAKE # The 'read FAKE' lines aren't really used for reading anything.
-	# It's for the user to follow and decide how the sript is faring and hit
-	# Enter (or Ctrl-C if something went wrong)! Teach me a better trick
-	# instead!
-	# They are also there for uncommenting when you need to manually debug the
-	# script to see what may have gone wrong. Say, simply:
-	# cat <script>|sed 's/#readme FAKE/readme FAKE/' > <script_tmp> etc.
-	# This is not a completed and polished script.
 done
 
 echo \$SSLKEYLOGFILE: $SSLKEYLOGFILE
@@ -202,46 +211,35 @@ fi
 echo \$KEYLOGFILE: $KEYLOGFILE
 #read FAKE
 
-echo -n \$PCAP_FILE: $PCAP_FILE
+echo \$PCAP_FILE: $PCAP_FILE
 #read FAKE
 # Files can have a few dots, this is how I'll take the last as separator.
 num_dots=$(echo $PCAP_FILE|sed 's/\./\n/g'| wc -l)
 num_dots_min_1=$(echo $num_dots - 1 | bc)
-echo \$num_dots: $num_dots
-echo \$num_dots_min_1: $num_dots_min_1
+#echo \$num_dots: $num_dots
+#echo \$num_dots_min_1: $num_dots_min_1
 ext=$(echo $PCAP_FILE|cut -d. -f $num_dots)
 echo \$ext: $ext
 #read FAKE
-echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/"
+#echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/"
 dump=$(echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/")
 echo \$dump: $dump
 #read FAKE
 filename=$dump.$ext
 echo \$filename: $filename
-#read FAKE
-echo \$ext: $ext
-read FAKE
+read FAKE # The 'read FAKE' lines aren't really used for reading anything.
+# It's for the user to follow and decide how the sript is faring and hit
+# Enter (or Ctrl-C if something went wrong)! Teach me a better trick
+# instead!
+# They are also there for uncommenting (a particular 'read FAKE' line along
+# with the, usually, 'echo ...' line just above it, when you need to manually
+# debug the script to see what may have gone wrong. The uncommenting of the
+# 'read FAKE' lines can be done simply with, say:
+# cat <script>|sed 's/#readme FAKE/readme FAKE/' > <script_tmp> etc.
+# This is not a completed and polished script.
 
 # I like to have a log to look up. Some PCAPs are slow to work. Need to know at
 # what stage the work is.
-#
-###############################################################################
-###  (UPDATE: There is however the ${dump}_streams.ls-1 that gets created  ####
-###  at the start though, so maybe this commented-out tip is not needed.)                ####
-###############################################################################
-#
-# And I was finishing lots of line with "|& tee -a $tshlog". No. Clutters too
-# much.  Better to add such a redirection to the very command issued when
-# starting the script.  Something like the commented lines below (previously
-# written for the further above purpose, so adapt them, if you need such
-# logging).
-# tshlog=tsh-$(date +%y%m%d_%H%M).log
-# export tshlog
-# touch $tshlog
-# echo "\$tshlog: $tshlog"
-# ls -l $tshlog
-# So after something like that, you can start this script with:
-# tshark-streams.sh <pcap-file> |& tee $tshlog
 
 if [ ! -z "$DISPLAYFILTER" ]; then
 	echo \$DISPLAYFILTER: $DISPLAYFILTER
@@ -256,34 +254,35 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 	echo "The list of stream numbers contained in the \$PCAP_FILE:"
 	echo "$PCAP_FILE is listed in:"
 	ls -l ${dump}_streams.ls-1
+	echo "Hit Enter to continue!"
 	echo "############################################################"
 	read FAKE
 
 	if [ ! -z "$STREAMSLIST" ]; then
-		echo \$STREAMSLIST
+		#echo \$STREAMSLIST
 		#read FAKE
 		echo \$STREAMSLIST: $STREAMSLIST
 		#read FAKE
 		STREAMS=$(cat $STREAMSLIST)
-		echo \$STREAMS
+		#echo \$STREAMS
 		#read FAKE
-		echo "\$STREAMS: $STREAMS"
+		#echo "\$STREAMS: $STREAMS"
 		read FAKE
 	fi
 else
-	echo "tshark -o "ssl.keylog_file: $KEYLOGFILE" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
+	echo "tshark -o \"ssl.keylog_file: $KEYLOGFILE\" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
 	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
 
 	if [ ! -z "$STREAMSLIST" ]; then
-		echo \$STREAMSLIST
+		#echo \$STREAMSLIST
 		#read FAKE
 		echo \$STREAMSLIST: $STREAMSLIST
 		#read FAKE
 		STREAMS=$(cat $STREAMSLIST)
-		echo \$STREAMS
+		#echo \$STREAMS
 		#read FAKE
-		echo "\$STREAMS: $STREAMS"
-		read FAKE
+		#echo "\$STREAMS: $STREAMS"
+		#read FAKE
 		if [ -e "${dump}_streams.ls-1" ]; then
 			# backing up the list of stream numbers if previously made
 			cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
@@ -298,6 +297,7 @@ else
 		echo "The list of stream numbers contained in the \$PCAP_FILE:"
 		echo "$PCAP_FILE is listed in:"
 		ls -l ${dump}_streams.ls-1
+		echo "Hit Enter to continue!"
 		echo "############################################################"
 		read FAKE
 	fi
