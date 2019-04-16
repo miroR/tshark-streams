@@ -191,15 +191,15 @@ do
         ;;
     Y)  DISPLAYFILTER=$OPTARG
     #echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
-    #read FAKE
+    ##read FAKE
         ;;
     l)  STREAMSLIST=$OPTARG
     #echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
-    #read FAKE
+    ##read FAKE
         ;;
     k)  KEYLOGFILE=$OPTARG
     #echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
-    #read FAKE
+    ##read FAKE
         ;;
     esac
 done
@@ -209,10 +209,10 @@ if [ "$KEYLOGFILE" == "" ]; then
 	KEYLOGFILE=$SSLKEYLOGFILE
 fi
 echo \$KEYLOGFILE: $KEYLOGFILE
-#read FAKE
+##read FAKE
 
 echo \$PCAP_FILE: $PCAP_FILE
-#read FAKE
+##read FAKE
 # Files can have a few dots, this is how I'll take the last as separator.
 num_dots=$(echo $PCAP_FILE|sed 's/\./\n/g'| wc -l)
 num_dots_min_1=$(echo $num_dots - 1 | bc)
@@ -220,14 +220,14 @@ num_dots_min_1=$(echo $num_dots - 1 | bc)
 #echo \$num_dots_min_1: $num_dots_min_1
 ext=$(echo $PCAP_FILE|cut -d. -f $num_dots)
 echo \$ext: $ext
-#read FAKE
+##read FAKE
 #echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/"
 dump=$(echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/")
 echo \$dump: $dump
-#read FAKE
+##read FAKE
 filename=$dump.$ext
 echo \$filename: $filename
-read FAKE # The 'read FAKE' lines aren't really used for reading anything.
+#read FAKE # The 'read FAKE' lines aren't really used for reading anything.
 # It's for the user to follow and decide how the sript is faring and hit
 # Enter (or Ctrl-C if something went wrong)! Teach me a better trick
 # instead!
@@ -243,7 +243,7 @@ read FAKE # The 'read FAKE' lines aren't really used for reading anything.
 
 if [ ! -z "$DISPLAYFILTER" ]; then
 	echo \$DISPLAYFILTER: $DISPLAYFILTER
-	read FAKE
+	#read FAKE
 	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
 	if [ -e "${dump}_streams.ls-1" ]; then
 		# backing up the list of stream numbers if previously made
@@ -256,18 +256,18 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 	ls -l ${dump}_streams.ls-1
 	echo "Hit Enter to continue!"
 	echo "############################################################"
-	read FAKE
+	#read FAKE
 
 	if [ ! -z "$STREAMSLIST" ]; then
 		#echo \$STREAMSLIST
-		#read FAKE
+		##read FAKE
 		echo \$STREAMSLIST: $STREAMSLIST
-		#read FAKE
+		##read FAKE
 		STREAMS=$(cat $STREAMSLIST)
 		#echo \$STREAMS
-		#read FAKE
+		##read FAKE
 		#echo "\$STREAMS: $STREAMS"
-		read FAKE
+		#read FAKE
 	fi
 else
 	echo "tshark -o \"ssl.keylog_file: $KEYLOGFILE\" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
@@ -275,14 +275,14 @@ else
 
 	if [ ! -z "$STREAMSLIST" ]; then
 		#echo \$STREAMSLIST
-		#read FAKE
+		##read FAKE
 		echo \$STREAMSLIST: $STREAMSLIST
-		#read FAKE
+		##read FAKE
 		STREAMS=$(cat $STREAMSLIST)
 		#echo \$STREAMS
-		#read FAKE
+		##read FAKE
 		#echo "\$STREAMS: $STREAMS"
-		#read FAKE
+		##read FAKE
 		if [ -e "${dump}_streams.ls-1" ]; then
 			# backing up the list of stream numbers if previously made
 			cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
@@ -299,7 +299,7 @@ else
 		ls -l ${dump}_streams.ls-1
 		echo "Hit Enter to continue!"
 		echo "############################################################"
-		read FAKE
+		#read FAKE
 	fi
 fi
 
@@ -346,7 +346,7 @@ for i in $STREAMS; do
 	rm ${dump}_s${INDEX}-ssl.raw*
 	echo "Extracted:"
 	ls -l ${dump}_s$INDEX-ssl.bin
-	#read FAKE
+	##read FAKE
 
 	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
 	echo "Extracted:"
