@@ -254,6 +254,8 @@ if [ ! -z "$DISPLAYFILTER" ]; then
 	echo "The list of stream numbers contained in the \$PCAP_FILE:"
 	echo "$PCAP_FILE is listed in:"
 	ls -l ${dump}_streams.ls-1
+	echo tail -2 ${dump}_streams.ls-1
+	tail -2 ${dump}_streams.ls-1
 	echo "Hit Enter to continue!"
 	echo "############################################################"
 	#read FAKE
@@ -297,6 +299,8 @@ else
 		echo "The list of stream numbers contained in the \$PCAP_FILE:"
 		echo "$PCAP_FILE is listed in:"
 		ls -l ${dump}_streams.ls-1
+		echo tail -2 ${dump}_streams.ls-1
+		tail -2 ${dump}_streams.ls-1
 		echo "Hit Enter to continue!"
 		echo "############################################################"
 		#read FAKE
