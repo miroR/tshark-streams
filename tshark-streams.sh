@@ -138,7 +138,7 @@
 
 function show_help {
   echo "tshark-streams.sh - Extract TCP/SSL streams from \$PCAP_FILE"
-  echo "Usage: $0 -r <PCAP file> -k <ssl.keylog_file> -l <list-of-streams> -Y <single-stream>"
+  echo "Usage: $0 -r <PCAP file> -k <tls.keylog_file> -l <list-of-streams> -Y <single-stream>"
   echo ""
   echo -e "    This script is very dirty and in testing phase. No warranties."
   echo -e "    Advanced users or very careful and very hardworking newbies only!"
@@ -174,7 +174,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Reset in case getopts has been used previously in the shell.
-OPTIND=1	# Frankly, don't understand yet the OPTIND, nor if it is needed here.
+OPTIND=1    # Frankly, don't understand yet the OPTIND, nor if it is needed here.
 DISPLAYFILTER=""
 STREAMSLIST=""
 KEYLOGFILE=""
@@ -206,7 +206,7 @@ done
 
 echo \$SSLKEYLOGFILE: $SSLKEYLOGFILE
 if [ "$KEYLOGFILE" == "" ]; then
-	KEYLOGFILE=$SSLKEYLOGFILE
+    KEYLOGFILE=$SSLKEYLOGFILE
 fi
 echo \$KEYLOGFILE: $KEYLOGFILE
 ##read FAKE
@@ -214,15 +214,17 @@ echo \$KEYLOGFILE: $KEYLOGFILE
 echo \$PCAP_FILE: $PCAP_FILE
 ##read FAKE
 # Files can have a few dots, this is how I'll take the last as separator.
-num_dots=$(echo $PCAP_FILE|sed 's/\./\n/g'| wc -l)
-num_dots_min_1=$(echo $num_dots - 1 | bc)
+ext=${PCAP_FILE##*.}
+dump=${PCAP_FILE%*.pcap}
+#num_dots=$(echo $PCAP_FILE|sed 's/\./\n/g'| wc -l)
+#num_dots_min_1=$(echo $num_dots - 1 | bc)
 #echo \$num_dots: $num_dots
 #echo \$num_dots_min_1: $num_dots_min_1
-ext=$(echo $PCAP_FILE|cut -d. -f $num_dots)
+#ext=$(echo $PCAP_FILE|cut -d. -f $num_dots)
 echo \$ext: $ext
 ##read FAKE
 #echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/"
-dump=$(echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/")
+#dump=$(echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/")
 echo \$dump: $dump
 ##read FAKE
 filename=$dump.$ext
@@ -241,118 +243,124 @@ echo \$filename: $filename
 # I like to have a log to look up. Some PCAPs are slow to work. Need to know at
 # what stage the work is.
 
+# Used to be (2 ln):
+#   WIRESHARK_RUN_FROM_BUILD_DIRECTORY=1
+#   TSHARK=/Cmn/git/wireshark.d/wireshark-ninja/run/tshark
+#   Replacing it with:
+. shark2use
+
 if [ ! -z "$DISPLAYFILTER" ]; then
-	echo \$DISPLAYFILTER: $DISPLAYFILTER
-	#read FAKE
-	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
-	if [ -e "${dump}_streams.ls-1" ]; then
-		# backing up the list of stream numbers if previously made
-		cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
-	fi
-	echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
-	echo "############################################################"
-	echo "The list of stream numbers contained in the \$PCAP_FILE:"
-	echo "$PCAP_FILE is listed in:"
-	ls -l ${dump}_streams.ls-1
-	echo tail -2 ${dump}_streams.ls-1
-	tail -2 ${dump}_streams.ls-1
-	echo "Hit Enter to continue!"
-	echo "############################################################"
-	#read FAKE
+    echo \$DISPLAYFILTER: $DISPLAYFILTER
+    #read FAKE
+    STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
+    if [ -e "${dump}_streams.ls-1" ]; then
+        # backing up the list of stream numbers if previously made
+        cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+    fi
+    echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
+    echo "############################################################"
+    echo "The list of stream numbers contained in the \$PCAP_FILE:"
+    echo "$PCAP_FILE is listed in:"
+    ls -l ${dump}_streams.ls-1
+    echo tail -2 ${dump}_streams.ls-1
+    tail -2 ${dump}_streams.ls-1
+    echo "Hit Enter to continue!"
+    echo "############################################################"
+    #read FAKE
 
-	if [ ! -z "$STREAMSLIST" ]; then
-		#echo \$STREAMSLIST
-		##read FAKE
-		echo \$STREAMSLIST: $STREAMSLIST
-		##read FAKE
-		STREAMS=$(cat $STREAMSLIST)
-		#echo \$STREAMS
-		##read FAKE
-		#echo "\$STREAMS: $STREAMS"
-		#read FAKE
-	fi
+    if [ ! -z "$STREAMSLIST" ]; then
+        #echo \$STREAMSLIST
+        ##read FAKE
+        echo \$STREAMSLIST: $STREAMSLIST
+        ##read FAKE
+        STREAMS=$(cat $STREAMSLIST)
+        #echo \$STREAMS
+        ##read FAKE
+        #echo "\$STREAMS: $STREAMS"
+        #read FAKE
+    fi
 else
-	echo "tshark -o \"ssl.keylog_file: $KEYLOGFILE\" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
-	STREAMS=$(tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
+    echo "\$TSHARK -o \"tls.keylog_file: $KEYLOGFILE\" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
+    STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
 
-	if [ ! -z "$STREAMSLIST" ]; then
-		#echo \$STREAMSLIST
-		##read FAKE
-		echo \$STREAMSLIST: $STREAMSLIST
-		##read FAKE
-		STREAMS=$(cat $STREAMSLIST)
-		#echo \$STREAMS
-		##read FAKE
-		#echo "\$STREAMS: $STREAMS"
-		##read FAKE
-		if [ -e "${dump}_streams.ls-1" ]; then
-			# backing up the list of stream numbers if previously made
-			cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
-		fi
-	else
-		if [ -e "${dump}_streams.ls-1" ]; then
-			# backing up the list of stream numbers if previously made
-			cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
-		fi
-		echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
-		echo "############################################################"
-		echo "The list of stream numbers contained in the \$PCAP_FILE:"
-		echo "$PCAP_FILE is listed in:"
-		ls -l ${dump}_streams.ls-1
-		echo tail -2 ${dump}_streams.ls-1
-		tail -2 ${dump}_streams.ls-1
-		echo "Hit Enter to continue!"
-		echo "############################################################"
-		#read FAKE
-	fi
+    if [ ! -z "$STREAMSLIST" ]; then
+        #echo \$STREAMSLIST
+        ##read FAKE
+        echo \$STREAMSLIST: $STREAMSLIST
+        ##read FAKE
+        STREAMS=$(cat $STREAMSLIST)
+        #echo \$STREAMS
+        ##read FAKE
+        #echo "\$STREAMS: $STREAMS"
+        ##read FAKE
+        if [ -e "${dump}_streams.ls-1" ]; then
+            # backing up the list of stream numbers if previously made
+            cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+        fi
+    else
+        if [ -e "${dump}_streams.ls-1" ]; then
+            # backing up the list of stream numbers if previously made
+            cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+        fi
+        echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
+        echo "############################################################"
+        echo "The list of stream numbers contained in the \$PCAP_FILE:"
+        echo "$PCAP_FILE is listed in:"
+        ls -l ${dump}_streams.ls-1
+        echo tail -2 ${dump}_streams.ls-1
+        tail -2 ${dump}_streams.ls-1
+        echo "Hit Enter to continue!"
+        echo "############################################################"
+        #read FAKE
+    fi
 fi
 
 for i in $STREAMS; do 
-	# This can be adjusted manually. If really huge dump, I set %.4d, else %.3d is enough.
-	INDEX=`printf '%.3d' $i`
-	echo "Processing stream $INDEX ..."
+    # This can be adjusted manually. If really huge dump, I set %.4d, else %.3d is enough.
+    INDEX=`printf '%.3d' $i`
+    echo "Processing stream $INDEX ..."
 
-	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
+    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
 
-#	ls -l ${dump}_s$INDEX.raw
-	cat ${dump}_s$INDEX.raw \
-	| grep -A1000000000 =================================================================== \
-	> ${dump}_s$INDEX.raw.CLEAN ;
-	wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l) ; #echo $wc_l;
-	wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
-	wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
-	cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
-#	ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
-	cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
-	# To see why and if tshark still does in such way that this work, maybe sometime
-	# in the future, reverse the commenting of these two lines below in particular, and investigate
-	rm ${dump}_s$INDEX.raw*
-	echo "Extracted:"
-	ls -l ${dump}_s$INDEX.bin
+#    ls -l ${dump}_s$INDEX.raw
+    cat ${dump}_s$INDEX.raw \
+    | grep -A1000000000 =================================================================== \
+    > ${dump}_s$INDEX.raw.CLEAN ;
+    wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l) ; #echo $wc_l;
+    wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
+    wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
+    cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
+#    ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
+    cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
+    # To see why and if tshark still does in such way that this work, maybe sometime
+    # in the future, reverse the commenting of these two lines below in particular, and investigate
+    rm ${dump}_s$INDEX.raw*
+    echo "Extracted:"
+    ls -l ${dump}_s$INDEX.bin
 
-	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
-	echo "Extracted:"
-	ls -l ${dump}_s$INDEX.txt
+    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
+    echo "Extracted:"
+    ls -l ${dump}_s$INDEX.txt
 
-	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
+    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
 
-	cat ${dump}_s${INDEX}-ssl.raw \
-	| grep -A1000000000 =================================================================== \
-	> ${dump}_s${INDEX}-ssl.raw.CLEAN ;
-	wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
-	wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
-	wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
-	cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
-#	ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
-	cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
-	# To see why and if tshark still does in such way that this work, maybe sometime
-	# in the future, reverse the commenting of these two lines below in particular, and investigate
-	rm ${dump}_s${INDEX}-ssl.raw*
-	echo "Extracted:"
-	ls -l ${dump}_s$INDEX-ssl.bin
-	##read FAKE
+    cat ${dump}_s${INDEX}-ssl.raw \
+    | grep -A1000000000 =================================================================== \
+    > ${dump}_s${INDEX}-ssl.raw.CLEAN ;
+    wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
+    wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
+    wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
+    cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
+#    ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
+    cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
+    # To see why and if tshark still does in such way that this work, maybe sometime
+    # in the future, reverse the commenting of these two lines below in particular, and investigate
+    rm ${dump}_s${INDEX}-ssl.raw*
+    echo "Extracted:"
+    ls -l ${dump}_s$INDEX-ssl.bin
+    ##read FAKE
 
-	tshark -o "ssl.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
-	echo "Extracted:"
-	ls -l ${dump}_s$INDEX-ssl.txt
+    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
+    echo "Extracted:"
+    ls -l ${dump}_s$INDEX-ssl.txt
 done
