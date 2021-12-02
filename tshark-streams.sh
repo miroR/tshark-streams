@@ -18,12 +18,12 @@
 # Apart from a recent Wireshark install, xxd (part of vim-core here) is needed.
 #
 # If neither of the options "-Y $DISPLAYFILTER" or -l "$STREAMSLIST" is given,
-# but only the -r "$PCAP_FILE" (and -k "$KEYLOGFILE" if there are SSL streams
-# in the $PCAP_FILE), this script will extract all tcp(/ssl) streams from your
+# but only the -r "$PCAP_FILE" (and -k "$KEYLOGFILE" if there are TLS streams
+# in the $PCAP_FILE), this script will extract all tcp(/tls) streams from your
 # pcap file.
 #
-# For the basics of SSL decryption see:
-# https://wiki.wireshark.org/SSL
+# For the basics of TLS decryption see:
+# https://wiki.wireshark.org/TLS
 #
 # where you can learn about setting the $SSLKEYLOGFILE environment variable
 # etc.).
@@ -47,7 +47,7 @@
 # in that/those location(s), from my uncenz archives, [I may be able to post
 # it] on http://www.CroatiaFidelis.hr) So, the less important links:
 #
-# My first acquainting myself with SSL decryption was at:
+# My first acquainting myself with TLS/SSL decryption was at:
 # SSL Decode & My Hard-Earned Advice for SPDY/HTTP2 in Firefox
 # https://forums.gentoo.org/viewtopic-t-1029408.html
 #
@@ -106,6 +106,8 @@
 # latter can not be done without the various dissections, the certificates and
 # handshakes, and plethora of other things and aspects, that are not dealt with
 # by this script at all ;-) ...
+# Update in 2021's modification: the extraction of objects is available in
+# wireshark/tshark since 2019 or so.
 #
 # And all those things actually exist in the, nowadays huge, surveillance
 # industry. But we, the honest users who do not want neither to control others
@@ -120,7 +122,7 @@
 # Released under BSD license, pls. see LICENSE, attached to this script (if
 # not, it's under a generic BSD license, which is completely GNU-compatible)
 #
-# Copyright (c) 2016 Croatia Fidelis, Miroslav Rovis, www.CroatiaFidelis.hr
+# Copyright (c) 2016, 2021 Croatia Fidelis, Miroslav Rovis, www.CroatiaFidelis.hr
 #
 # TIP: If you issue a redirection to the very command issued when starting the
 # script, something like these commented-out lines:
@@ -163,9 +165,6 @@ function show_help {
   echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression, no time"
   echo -e "    \tto fix this)"
   echo ""
-#  echo -e "    \tThere's a few times for you to hit Enter, to get going, to allow you"
-#  echo -e "    \tto view this script and what it is doing in another terminal..."
-#  echo -e "    \tPls. read more explanation in the script."
 }
 
 if [ $# -eq 0 ]; then
@@ -191,15 +190,12 @@ do
         ;;
     Y)  DISPLAYFILTER=$OPTARG
     #echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
-    ##read FAKE
         ;;
     l)  STREAMSLIST=$OPTARG
     #echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
-    ##read FAKE
         ;;
     k)  KEYLOGFILE=$OPTARG
     #echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
-    ##read FAKE
         ;;
     esac
 done
@@ -209,39 +205,14 @@ if [ "$KEYLOGFILE" == "" ]; then
     KEYLOGFILE=$SSLKEYLOGFILE
 fi
 echo \$KEYLOGFILE: $KEYLOGFILE
-##read FAKE
 
 echo \$PCAP_FILE: $PCAP_FILE
-##read FAKE
-# Files can have a few dots, this is how I'll take the last as separator.
 ext=${PCAP_FILE##*.}
 dump=${PCAP_FILE%*.pcap}
-#num_dots=$(echo $PCAP_FILE|sed 's/\./\n/g'| wc -l)
-#num_dots_min_1=$(echo $num_dots - 1 | bc)
-#echo \$num_dots: $num_dots
-#echo \$num_dots_min_1: $num_dots_min_1
-#ext=$(echo $PCAP_FILE|cut -d. -f $num_dots)
 echo \$ext: $ext
-##read FAKE
-#echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/"
-#dump=$(echo $PCAP_FILE|sed "s/\(.*\)\.$ext/\1/")
 echo \$dump: $dump
-##read FAKE
 filename=$dump.$ext
 echo \$filename: $filename
-#read FAKE # The 'read FAKE' lines aren't really used for reading anything.
-# It's for the user to follow and decide how the sript is faring and hit
-# Enter (or Ctrl-C if something went wrong)! Teach me a better trick
-# instead!
-# They are also there for uncommenting (a particular 'read FAKE' line along
-# with the, usually, 'echo ...' line just above it, when you need to manually
-# debug the script to see what may have gone wrong. The uncommenting of the
-# 'read FAKE' lines can be done simply with, say:
-# cat <script>|sed 's/#readme FAKE/readme FAKE/' > <script_tmp> etc.
-# This is not a completed and polished script.
-
-# I like to have a log to look up. Some PCAPs are slow to work. Need to know at
-# what stage the work is.
 
 # Used to be (2 ln):
 #   WIRESHARK_RUN_FROM_BUILD_DIRECTORY=1
@@ -249,11 +220,31 @@ echo \$filename: $filename
 #   Replacing it with:
 . shark2use
 
-if [ ! -z "$DISPLAYFILTER" ]; then
-    echo \$DISPLAYFILTER: $DISPLAYFILTER
-    #read FAKE
-    STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
+# In case of interrupted runs (of say huge PCAPs):
+if [ ! -n "$STREAMSLIST" ]; then
     if [ -e "${dump}_streams.ls-1" ]; then
+        STREAMSLIST=${dump}_streams.ls-1
+        ls -l ${dump}_streams.ls-1
+        echo "(ls -l ${dump}_streams.ls-1)"
+        ls -l $STREAMSLIST
+        echo "(ls -l $STREAMSLIST)"
+    else
+        echo "There is no:"
+        echo "              ${dump}_streams.ls-1"
+    fi
+fi
+#read NOP
+if [ ! -z "$DISPLAYFILTER" ]; then
+    echo "if start 005"
+    echo \$DISPLAYFILTER: $DISPLAYFILTER
+    if [ -e "$STREAMSLIST" ] && [ ! -s "$STREAMSLIST" ]; then
+       echo "We'll be using the existing \$STREAMSLIST:" 
+        ls -l $STREAMSLIST
+        echo "(ls -l $STREAMSLIST)"
+    else
+        STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
+    fi 
+    if [ -e "${dump}_streams.ls-1" ] && [ -s "${dump}_streams.ls-1" ]; then
         # backing up the list of stream numbers if previously made
         cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
     fi
@@ -266,37 +257,37 @@ if [ ! -z "$DISPLAYFILTER" ]; then
     tail -2 ${dump}_streams.ls-1
     echo "Hit Enter to continue!"
     echo "############################################################"
-    #read FAKE
 
     if [ ! -z "$STREAMSLIST" ]; then
-        #echo \$STREAMSLIST
-        ##read FAKE
         echo \$STREAMSLIST: $STREAMSLIST
-        ##read FAKE
-        STREAMS=$(cat $STREAMSLIST)
-        #echo \$STREAMS
-        ##read FAKE
-        #echo "\$STREAMS: $STREAMS"
-        #read FAKE
+        STREAMS=$(<$STREAMSLIST)
     fi
 else
-    echo "\$TSHARK -o \"tls.keylog_file: $KEYLOGFILE\" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
-    STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
+    ls -l ${dump}_streams.ls-1
+    echo "(ls -l \${dump}_streams.ls-1)"
+    ls -l $STREAMSLIST
+    echo "(ls -l \$STREAMSLIST)"
+    echo "else start 005"
+    #read NOP
+    if [ -e "$STREAMSLIST" ] && [ -s "$STREAMSLIST" ]; then
+       echo "We'll be using the existing \$STREAMSLIST:" 
+        ls -l $STREAMSLIST
+        echo "(ls -l $STREAMSLIST)"
+        STREAMS=$(<$STREAMSLIST)
+    else
+        echo "\$TSHARK -o \"tls.keylog_file: $KEYLOGFILE\" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
+        STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
+    fi
 
+    # $STREAMSLIST and ${dump}_streams.ls-1 are not always the same thing.
     if [ ! -z "$STREAMSLIST" ]; then
-        #echo \$STREAMSLIST
-        ##read FAKE
         echo \$STREAMSLIST: $STREAMSLIST
-        ##read FAKE
-        STREAMS=$(cat $STREAMSLIST)
-        #echo \$STREAMS
-        ##read FAKE
-        #echo "\$STREAMS: $STREAMS"
-        ##read FAKE
+        STREAMS=$(<$STREAMSLIST)
         if [ -e "${dump}_streams.ls-1" ]; then
             # backing up the list of stream numbers if previously made
             cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
         fi
+        echo "In if 010"
     else
         if [ -e "${dump}_streams.ls-1" ]; then
             # backing up the list of stream numbers if previously made
@@ -311,56 +302,91 @@ else
         tail -2 ${dump}_streams.ls-1
         echo "Hit Enter to continue!"
         echo "############################################################"
-        #read FAKE
+        echo "In else 011"
     fi
+    #read FAKE
 fi
 
+> ${dump}_streams.ls-1_PREV #truncate, just in case
+# One loop to list existing streams if any
+for i in $STREAMS; do 
+    INDEX=`printf '%.3d' $i`
+    for stream_file in ${dump}_s$INDEX.raw ${dump}_s$INDEX.raw.CLEAN ${dump}_s$INDEX.raw.FINAL ${dump}_s$INDEX.bin \
+        ${dump}_s$INDEX.txt ${dump}_s$INDEX-ssl.txt ; do
+        if [ -e "$stream_file" ]; then
+            if ( echo $stream_file|grep '\.raw' ); then
+                rm -vi $stream_file
+            else
+                echo $stream_file >> ${dump}_streams.ls-1_PREV
+            fi
+        fi
+    done
+done
+cat ${dump}_streams.ls-1_PREV
+echo "(cat ${dump}_streams.ls-1_PREV)"
+ls -l ${dump}_streams.ls-1_PREV
+echo "(ls -l ${dump}_streams.ls-1_PREV)"
+#read NOP 
+#rm -v .skip_non-TLS_stream .skip_TLS_stream
+echo "You can now set either:"
+echo ".skip_non-TLS_stream (type nt)"
+echo ".skip_TLS_stream (type st)"
+#read skipping
+if [ "$skipping" == "nt" ]; then touch .skip_non-TLS_stream ; ls -l .skip_non-TLS_stream ; fi
+if [ "$skipping" == "st" ]; then touch .skip_TLS_stream ; ls -l .skip_TLS_stream ; fi
+#read NOP
 for i in $STREAMS; do 
     # This can be adjusted manually. If really huge dump, I set %.4d, else %.3d is enough.
     INDEX=`printf '%.3d' $i`
     echo "Processing stream $INDEX ..."
+    if [ ! -e  ".skip_non-TLS_stream" ]; then
+        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw"
+        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
+    
+        #ls -l ${dump}_s$INDEX.raw
+        cat ${dump}_s$INDEX.raw \
+        | grep -A1000000000 =================================================================== \
+        > ${dump}_s$INDEX.raw.CLEAN ;
+        wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l) ; #echo $wc_l;
+        wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
+        wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
+        cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
+        #ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
+        cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
+        # To see why and if tshark still does in such way that this work, maybe sometime
+        # in the future, reverse the commenting of these two lines below in particular, and investigate
+        rm ${dump}_s$INDEX.raw*
+        echo "Extracted:"
+        ls -l ${dump}_s$INDEX.bin
+    
+        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt"
+        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
+        echo "Extracted:"
+        ls -l ${dump}_s$INDEX.txt
+    fi
+    if [ ! -e  ".skip_TLS_stream" ]; then
+        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw"
+        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
 
-    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
+        cat ${dump}_s${INDEX}-ssl.raw \
+        | grep -A1000000000 =================================================================== \
+        > ${dump}_s${INDEX}-ssl.raw.CLEAN ;
+        wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
+        wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
+        wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
+        cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
+        #ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
+        cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
+        # To see why and if tshark still does in such way that this work, maybe sometime
+        # in the future, reverse the commenting of these two lines below in particular, and investigate
+        rm ${dump}_s${INDEX}-ssl.raw*
+        echo "Extracted:"
+        ls -l ${dump}_s$INDEX-ssl.bin
+        ##read FAKE
 
-#    ls -l ${dump}_s$INDEX.raw
-    cat ${dump}_s$INDEX.raw \
-    | grep -A1000000000 =================================================================== \
-    > ${dump}_s$INDEX.raw.CLEAN ;
-    wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l) ; #echo $wc_l;
-    wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
-    wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
-    cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
-#    ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
-    cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
-    # To see why and if tshark still does in such way that this work, maybe sometime
-    # in the future, reverse the commenting of these two lines below in particular, and investigate
-    rm ${dump}_s$INDEX.raw*
-    echo "Extracted:"
-    ls -l ${dump}_s$INDEX.bin
-
-    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
-    echo "Extracted:"
-    ls -l ${dump}_s$INDEX.txt
-
-    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
-
-    cat ${dump}_s${INDEX}-ssl.raw \
-    | grep -A1000000000 =================================================================== \
-    > ${dump}_s${INDEX}-ssl.raw.CLEAN ;
-    wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
-    wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
-    wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
-    cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
-#    ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
-    cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
-    # To see why and if tshark still does in such way that this work, maybe sometime
-    # in the future, reverse the commenting of these two lines below in particular, and investigate
-    rm ${dump}_s${INDEX}-ssl.raw*
-    echo "Extracted:"
-    ls -l ${dump}_s$INDEX-ssl.bin
-    ##read FAKE
-
-    $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
-    echo "Extracted:"
-    ls -l ${dump}_s$INDEX-ssl.txt
+        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt"
+        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
+        echo "Extracted:"
+        ls -l ${dump}_s$INDEX-ssl.txt
+    fi
 done
