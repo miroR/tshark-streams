@@ -1,19 +1,12 @@
 #!/bin/bash
 #
-# You should probably be able to find this program now at:
+# You should probably be able to find the old version this program at:
 #
 # https://github.com/miroR/tshark-streams.git
+# I'll publish the current version somewhere libre-place, some day.
 #
-# Based on http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
-#
-# tshark-streams may not work in case your Wireshark has not been patched,
-# in >wireshark-2.0.2, tshark follow ssl stream segfaults
-# https://bugs.wireshark.org/bugzilla/show_bug.cgi?id=12616
-# (applies to older versions only, by now).
-#
-# I tried unsuccessfully to contact Matt whose idea I have further developed by
-# posting comments at his heapspray.net page. If you know Matt, tell him please
-# to try and contact me, via github, probably most reliable.
+# I initially figured out how to extract streams reading:
+# http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
 #
 # Apart from a recent Wireshark install, xxd (part of vim-core here) is needed.
 #
@@ -31,25 +24,8 @@
 # As far as decrypting your own captures, first you have to make them. You may
 # be interested to see how I do it at:
 # https://github.com/miroR/uncenz
-#
-# Less important links follow (but if any of the links died by the time you
-# read here, do try and tell me --use the uncenz above to be able to show how
-# you tried to contact me, if unsuccessful, by posting the screencast and
-# traffic dump in public [[after longer wait for my reply, see below how I'm
-# very slow]] (the publishing may be the only way to fight censorship; exampli
-# gratia in Croatia we are still not done at all with the remnants and progenie
-# and metamorphoids of the communist UDBA; UDBA is something like a tiny local
-# NSA, for a short description; and emails/phone calls/other to me/from me have
-# for years been filtered by those subjects and allowed through or disallowed
-# and cut off and thrown out instead)--, and if I get your notice I may be able
-# to post, the information about it, or even the TCP/SSL-extracted streams,
-# with this tshark-streams.sh, id est: the same information that previously was
-# in that/those location(s), from my uncenz archives, [I may be able to post
-# it] on http://www.CroatiaFidelis.hr) So, the less important links:
-#
-# My first acquainting myself with TLS/SSL decryption was at:
-# SSL Decode & My Hard-Earned Advice for SPDY/HTTP2 in Firefox
-# https://forums.gentoo.org/viewtopic-t-1029408.html
+# although that's an old version of uncenz that I don't use anymore. I'll
+# publish improved uncenz which I use daily somewhere libre-place, some day.
 #
 # How I started this script is all in this Gentoo Forums topic:
 # How to extract content from tshark-saved streams?
@@ -58,9 +34,6 @@
 # and in a wireshark-users mailing list lonely thread:
 # [Wireshark-users] follow [tcp|ssl].stream with tshark 
 # https://www.wireshark.org/lists/wireshark-users/201511/msg00033.html 
-#
-# (There are even bugs that I (mis)posted/(mis)reported on Gentoo and Wireshark
-# Bugzilla about this! But find those in the links above, if you really wish.)
 #
 # For the understanding of that topic and that thread I leave the old
 # tshark-streams.sh script in its original directory, where the first improved
@@ -75,55 +48,12 @@
 #
 # and not either the first improved version, should be used anymore at all.
 #
-# On the other hand, I work so *slowly* (pls. do notice!; e.g. be patient if
-# you try and contact me, could be my slowliness), that I'm currently
-# absolutely out of time to clean up this script very much at all which I
-# intend to tag version 0.18 of tshark-streams.sh ...
-#
-# Ah, must not foget to tell: I've only just managed to get it to work with
-# Bash's own getopts builtin, after pondering over NetMinecraft (thanks
-# Jonathan Racicot!):
-#
-# https://github.com/InfectedPacket/NetMinecraft
-#
-# (but NetMinecraft was done for the pre-2.0 Wireshark it seems to me, and some
-# of the functionality does not seem to work, or is incomplete as just like this
-# tshark-streams.sh is. The tshark-streams.sh is, in contrast to NetMinecraft,
-# only dealing with the record layer, at least for now. The two could be
-# complimentary.)
-#
-# Use this script absolutely at your own risk! I guarrantee nothing to you
-# regarding anything at all, usefulness or goodness or anything
-# in/from/connected to this script.
-#
-# That said, I stress that it works fine for me (in most if not all the testing
-# so far, which however hasn't been intensive).
-#
-# And one more thing: this script is just a systematic first step. The next
-# thing to do is harder: sort the data extracted (get the htmls, css, gifs,
-# pngs etc. extracted and sorted from those streams; Perl is to be employed
-# with its regexps), and troubleshoot the eventual problems. In particular the
-# latter can not be done without the various dissections, the certificates and
-# handshakes, and plethora of other things and aspects, that are not dealt with
-# by this script at all ;-) ...
-# Update in 2021's modification: the extraction of objects is available in
-# wireshark/tshark since 2019 or so.
-#
-# And all those things actually exist in the, nowadays huge, surveillance
-# industry. But we, the honest users who do not want neither to control others
-# nor to be controled, have to make those for us, and publish them for our
-# brothers in *nix ...  Redoing the steps of the secret (and filthy by intended
-# and applied use) knowledge and technology that already exist... What dirty
-# business, such controling of people, the brainwashing, the hiding of events,
-# causes and the realities beyond, but which would traspire to the eyes of the
-# weak had they not been so oppressed... By all that industry of lying and
-# worse!...
-#
 # Released under BSD license, pls. see LICENSE, attached to this script (if
 # not, it's under a generic BSD license, which is completely GNU-compatible)
 #
-# Copyright (c) 2016, 2021 Croatia Fidelis, Miroslav Rovis, www.CroatiaFidelis.hr
+# Copyright (c) 2016, 2021, 2022 Croatia Fidelis, Miroslav Rovis, www.CroatiaFidelis.hr
 #
+
 # TIP: If you issue a redirection to the very command issued when starting the
 # script, something like these commented-out lines:
 # tshlog=tsh-$(date +%y%m%d_%H%M).log # (tshlog for "tshark log")
@@ -140,30 +70,26 @@
 
 function show_help {
   echo "tshark-streams.sh - Extract TCP/SSL streams from \$PCAP_FILE"
-  echo "Usage: $0 -r <PCAP file> -k <tls.keylog_file> -l <list-of-streams> -Y <single-stream>"
-  echo ""
-  echo -e "    This script is very dirty and in testing phase. No warranties."
-  echo -e "    Advanced users or very careful and very hardworking newbies only!"
-  echo -e "    \t\t!!!! You have been warned !!!!"
+  echo "Usage: ${0##*/} -r <PCAP file> -k <tls.keylog_file> -l <list-of-streams> -Y <single-stream>"
   echo ""
   echo -e "    \tIf neither -Y nor -l are given, attempt is made to extract all streams"
   echo -e "    \tNOTE: the -Y and -l are mutually exclusive"
   echo ""
   echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone); see below"
   echo -e "    \tfor particular uses though"
-  echo -e "    -k give the filename with the CLIENT_RANDOM... lines that belong to"
+  echo -e "    -k give the filename with the CLIENT_RANDOM or"
+  echo -e "    \tCLIENT_HANDSHAKE_TRAFFIC_SECRET and related... lines that belong to"
   echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
-  echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (currently"
-  echo -e "    \thard-wired to value: /home/<you>/.sslkey.log) used during"
+  echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (which can be"
+  echo -e "    \t/home/<you>/.sslkey.log or some other) used during"
   echo -e "    \tFirefox or some other NSS supporting browser's run, all properly set,"
   echo -e "    \tthen you don't need to set this flag"
   echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
-  echo -e "    \t\${dump}_streams.ls-1 file gotten from, maybe interrupted (for now,"
-  echo -e "    \t I'm really out of time) all-extraction run to pick from)"
+  echo -e "    \t\${dump}_streams.ls-1 file gotten from, maybe interrupted"
+  echo -e "    \tall-extraction run to pick from)"
   echo -e "    -Y a single stream number display filter (see 'man tshark', exampli gratia:"
   echo -e "    \t -Y \"tcp.stream==N\" where N is a number from among the available"
-  echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression, no time"
-  echo -e "    \tto fix this)"
+  echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression)"
   echo ""
 }
 
@@ -173,29 +99,28 @@ if [ $# -eq 0 ]; then
 fi
 
 # Reset in case getopts has been used previously in the shell.
-OPTIND=1    # Frankly, don't understand yet the OPTIND, nor if it is needed here.
+OPTIND=1
 DISPLAYFILTER=""
 STREAMSLIST=""
 KEYLOGFILE=""
 
-while getopts "h?r:Y:l:k:" opt;
-do
+while getopts "h?r:Y:l:k:" opt; do
     case "$opt" in
     h|\?)
         show_help
         exit 0
         ;;
     r)  PCAP_FILE=$OPTARG
-    #echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
+    echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
         ;;
     Y)  DISPLAYFILTER=$OPTARG
-    #echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
+    echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
         ;;
     l)  STREAMSLIST=$OPTARG
-    #echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
+    echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
         ;;
     k)  KEYLOGFILE=$OPTARG
-    #echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
+    echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
         ;;
     esac
 done
@@ -216,7 +141,7 @@ echo \$filename: $filename
 
 # Used to be (2 ln):
 #   WIRESHARK_RUN_FROM_BUILD_DIRECTORY=1
-#   TSHARK=/Cmn/git/wireshark.d/wireshark-ninja/run/tshark
+#   TSHARK=/some-place/wireshark-ninja/run/tshark
 #   Replacing it with:
 . shark2use
 
@@ -237,6 +162,7 @@ fi
 if [ ! -z "$DISPLAYFILTER" ]; then
     echo "if start 005"
     echo \$DISPLAYFILTER: $DISPLAYFILTER
+    #read NOP
     if [ -e "$STREAMSLIST" ] && [ ! -s "$STREAMSLIST" ]; then
        echo "We'll be using the existing \$STREAMSLIST:" 
         ls -l $STREAMSLIST
@@ -257,16 +183,21 @@ if [ ! -z "$DISPLAYFILTER" ]; then
     tail -2 ${dump}_streams.ls-1
     echo "Hit Enter to continue!"
     echo "############################################################"
+    #read NOP
 
     if [ ! -z "$STREAMSLIST" ]; then
         echo \$STREAMSLIST: $STREAMSLIST
         STREAMS=$(<$STREAMSLIST)
     fi
 else
-    ls -l ${dump}_streams.ls-1
-    echo "(ls -l \${dump}_streams.ls-1)"
-    ls -l $STREAMSLIST
-    echo "(ls -l \$STREAMSLIST)"
+    if [ -e "${dump}_streams.ls-1" ]; then
+        ls -l ${dump}_streams.ls-1
+        echo "(ls -l \${dump}_streams.ls-1)"
+    fi
+    if [ -e "$STREAMSLIST" ]; then
+        ls -l $STREAMSLIST
+        echo "(ls -l \$STREAMSLIST)"
+    fi
     echo "else start 005"
     #read NOP
     if [ -e "$STREAMSLIST" ] && [ -s "$STREAMSLIST" ]; then
@@ -288,6 +219,7 @@ else
             cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
         fi
         echo "In if 010"
+        #read NOP
     else
         if [ -e "${dump}_streams.ls-1" ]; then
             # backing up the list of stream numbers if previously made
@@ -340,7 +272,7 @@ for i in $STREAMS; do
     INDEX=`printf '%.3d' $i`
     echo "Processing stream $INDEX ..."
     if [ ! -e  ".skip_non-TLS_stream" ]; then
-        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw"
+        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw"
         $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
     
         #ls -l ${dump}_s$INDEX.raw
@@ -359,13 +291,13 @@ for i in $STREAMS; do
         echo "Extracted:"
         ls -l ${dump}_s$INDEX.bin
     
-        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt"
+        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt"
         $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
         echo "Extracted:"
         ls -l ${dump}_s$INDEX.txt
     fi
     if [ ! -e  ".skip_TLS_stream" ]; then
-        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw"
+        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw"
         $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
 
         cat ${dump}_s${INDEX}-ssl.raw \
@@ -382,9 +314,9 @@ for i in $STREAMS; do
         rm ${dump}_s${INDEX}-ssl.raw*
         echo "Extracted:"
         ls -l ${dump}_s$INDEX-ssl.bin
-        ##read FAKE
+        #read FAKE
 
-        #echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt"
+        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt"
         $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
         echo "Extracted:"
         ls -l ${dump}_s$INDEX-ssl.txt
