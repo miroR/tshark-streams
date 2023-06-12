@@ -5,10 +5,10 @@
 # https://github.com/miroR/tshark-streams.git
 # I'll publish the current version somewhere libre-place, some day.
 #
-# I initially figured out how to extract streams reading:
+# I initially figured out how to extract tcp streams reading:
 # http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
 #
-# Apart from a recent Wireshark install, xxd (part of vim-core here) is needed.
+# Apart from a recent Wireshark install, xxd is needed.
 #
 # If neither of the options "-Y $DISPLAYFILTER" or -l "$STREAMSLIST" is given,
 # but only the -r "$PCAP_FILE" (and -k "$KEYLOGFILE" if there are TLS streams
@@ -158,17 +158,14 @@ if [ ! -n "$STREAMSLIST" ]; then
         echo "              ${dump}_streams.ls-1"
     fi
 fi
-#read NOP
 if [ ! -z "$DISPLAYFILTER" ]; then
-    echo "if start 005"
     echo \$DISPLAYFILTER: $DISPLAYFILTER
-    #read NOP
-    if [ -e "$STREAMSLIST" ] && [ ! -s "$STREAMSLIST" ]; then
+    if [ -e "$STREAMSLIST" ] && [ -s "$STREAMSLIST" ]; then
        echo "We'll be using the existing \$STREAMSLIST:" 
         ls -l $STREAMSLIST
         echo "(ls -l $STREAMSLIST)"
     else
-        STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
+        STREAMS=$($TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -Y "$DISPLAYFILTER" -T fields -e tcp.stream | sort -n | uniq)
     fi 
     if [ -e "${dump}_streams.ls-1" ] && [ -s "${dump}_streams.ls-1" ]; then
         # backing up the list of stream numbers if previously made
@@ -183,7 +180,6 @@ if [ ! -z "$DISPLAYFILTER" ]; then
     tail -2 ${dump}_streams.ls-1
     echo "Hit Enter to continue!"
     echo "############################################################"
-    #read NOP
 
     if [ ! -z "$STREAMSLIST" ]; then
         echo \$STREAMSLIST: $STREAMSLIST
@@ -198,16 +194,14 @@ else
         ls -l $STREAMSLIST
         echo "(ls -l \$STREAMSLIST)"
     fi
-    echo "else start 005"
-    #read NOP
     if [ -e "$STREAMSLIST" ] && [ -s "$STREAMSLIST" ]; then
        echo "We'll be using the existing \$STREAMSLIST:" 
         ls -l $STREAMSLIST
         echo "(ls -l $STREAMSLIST)"
         STREAMS=$(<$STREAMSLIST)
     else
-        echo "\$TSHARK -o \"tls.keylog_file: $KEYLOGFILE\" -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
-        STREAMS=$($TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
+        echo "\$TSHARK -otls.keylog_file:$KEYLOGFILE -r $dump.$ext -T fields -e tcp.stream | sort -n | uniq"
+        STREAMS=$($TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e tcp.stream | sort -n | uniq)
     fi
 
     # $STREAMSLIST and ${dump}_streams.ls-1 are not always the same thing.
@@ -218,8 +212,6 @@ else
             # backing up the list of stream numbers if previously made
             cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
         fi
-        echo "In if 010"
-        #read NOP
     else
         if [ -e "${dump}_streams.ls-1" ]; then
             # backing up the list of stream numbers if previously made
@@ -258,7 +250,6 @@ cat ${dump}_streams.ls-1_PREV
 echo "(cat ${dump}_streams.ls-1_PREV)"
 ls -l ${dump}_streams.ls-1_PREV
 echo "(ls -l ${dump}_streams.ls-1_PREV)"
-#read NOP 
 #rm -v .skip_non-TLS_stream .skip_TLS_stream
 echo "You can now set either:"
 echo ".skip_non-TLS_stream (type nt)"
@@ -266,68 +257,87 @@ echo ".skip_TLS_stream (type st)"
 #read skipping
 if [ "$skipping" == "nt" ]; then touch .skip_non-TLS_stream ; ls -l .skip_non-TLS_stream ; fi
 if [ "$skipping" == "st" ]; then touch .skip_TLS_stream ; ls -l .skip_TLS_stream ; fi
-#read NOP
 for i in $STREAMS; do 
     # This can be adjusted manually. If really huge dump, I set %.4d, else %.3d is enough.
     INDEX=`printf '%.3d' $i`
     echo "Processing stream $INDEX ..."
     if [ ! -e  ".skip_non-TLS_stream" ]; then
         if [ ! -e "${dump}_s$INDEX.raw" ] && [ ! -e "${dump}_s$INDEX.bin" ]; then
-            ls -l ${dump}_s$INDEX.raw ${dump}_s$INDEX.bin
-            echo "(should see \"No such file or directory just above\")"
-            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.raw"
-            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.raw
+            echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.raw"
+            $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.raw
         
             cat ${dump}_s$INDEX.raw \
             | grep -A1000000000 =================================================================== \
             > ${dump}_s$INDEX.raw.CLEAN ;
-            wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l)
-            wc_l_head=$(echo $wc_l-1|bc)
-            wc_l_tail=$(echo $wc_l_head-5|bc)
-            cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
+            cat ${dump}_s$INDEX.raw.CLEAN | tail -n+6|head -n-1 > ${dump}_s$INDEX.raw.FINAL;
             cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
             # To see why and if tshark still does in such way that this work, maybe sometime
-            # in the future, reverse the commenting of these two lines below in particular, and investigate
+            # in the future, comment out the line below, and investigate
             rm ${dump}_s$INDEX.raw*
             echo "Extracted:"
             ls -l ${dump}_s$INDEX.bin
         fi
     
         if [ ! -e "${dump}_s$INDEX.txt" ]; then
-            ls -l ${dump}_s$INDEX.txt
-                    echo "(should see \"No such file or directory just above\")"
-            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.txt"
-            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.txt
+            echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.txt"
+            $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.txt
             echo "Extracted:"
             ls -l ${dump}_s$INDEX.txt
         fi
     fi
     if [ ! -e  ".skip_TLS_stream" ]; then
         if [ ! -e "${dump}_s${INDEX}-ssl.raw" ] && [ ! -e "${dump}_s${INDEX}-ssl.bin" ]; then
-            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.raw"
-            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.raw
+            echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.raw"
+            $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.raw
          
             cat ${dump}_s${INDEX}-ssl.raw \
             | grep -A1000000000 =================================================================== \
             > ${dump}_s${INDEX}-ssl.raw.CLEAN ;
-            wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
-            wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
-            wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
-            cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
+            cat ${dump}_s${INDEX}-ssl.raw.CLEAN | tail -n+6|head -n-1 > ${dump}_s${INDEX}-ssl.raw.FINAL;
             #ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
             cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
             # To see why and if tshark still does in such way that this work, maybe sometime
-            # in the future, reverse the commenting of these two lines below in particular, and investigate
+            # in the future, comment out the line below, and investigate
             rm ${dump}_s${INDEX}-ssl.raw*
             echo "Extracted:"
             ls -l ${dump}_s$INDEX-ssl.bin
         fi
 
         if [ ! -e "${dump}_s${INDEX}-ssl.txt" ]; then
-            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.txt"
-            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.txt
+            echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.txt"
+            $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.txt
             echo "Extracted:"
             ls -l ${dump}_s$INDEX-ssl.txt
+        fi
+        echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -Y \"tcp.stream==$i\" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq"
+        $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -Y "tcp.stream==$i" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq > ${dump}_s${INDEX}_h2.ls-1
+        if [ ! -s "${dump}_s${INDEX}_h2.ls-1" ]; then
+            rm -v ${dump}_s${INDEX}_h2.ls-1
+        else
+            H2_STREAMS=$(<${dump}_s${INDEX}_h2.ls-1)
+            echo \$H2_STREAMS: $H2_STREAMS
+            for h2 in $H2_STREAMS; do 
+                echo \$i: $i
+                echo \$h2: $h2
+                H2INDEX=`printf '%.3d' $h2`
+                echo \$H2INDEX: $H2INDEX
+                if [ ! -e "${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw" ] && [ ! -e "${dump}_s${INDEX}-ssl-h2-${H2INDEX}.bin" ]; then
+                    echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -T fields -e data -qz \"follow,http2,raw,$i,$h2\" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw"
+                    $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e data -qz "follow,http2,raw,$i,$h2" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw
+                    ls -l ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw
+                    cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw \
+                    | grep -A1000000000 =================================================================== \
+                    > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN ;
+                    cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN | tail -n+6|head -n-1 > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL
+                    ls -l ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN  ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL
+                    cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.bin
+                    # To see why and if tshark still does in such way that this work, maybe sometime
+                    # in the future, comment out the line below, and investigate
+                    rm ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw*
+                    echo "Extracted:"
+                    ls -l ${dump}_s$INDEX-ssl-h2-${H2INDEX}.bin
+                fi
+            done
         fi
     fi
 done
