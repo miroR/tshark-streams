@@ -247,7 +247,7 @@ for i in $STREAMS; do
         ${dump}_s$INDEX.txt ${dump}_s$INDEX-ssl.txt ; do
         if [ -e "$stream_file" ]; then
             if ( echo $stream_file|grep '\.raw' ); then
-                rm -vi $stream_file
+                rm -iv $stream_file
             else
                 echo $stream_file >> ${dump}_streams.ls-1_PREV
             fi
@@ -272,53 +272,62 @@ for i in $STREAMS; do
     INDEX=`printf '%.3d' $i`
     echo "Processing stream $INDEX ..."
     if [ ! -e  ".skip_non-TLS_stream" ]; then
-        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw"
-        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.raw
+        if [ ! -e "${dump}_s$INDEX.raw" ] && [ ! -e "${dump}_s$INDEX.bin" ]; then
+            ls -l ${dump}_s$INDEX.raw ${dump}_s$INDEX.bin
+            echo "(should see \"No such file or directory just above\")"
+            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.raw"
+            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,tcp,raw,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.raw
+        
+            cat ${dump}_s$INDEX.raw \
+            | grep -A1000000000 =================================================================== \
+            > ${dump}_s$INDEX.raw.CLEAN ;
+            wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l)
+            wc_l_head=$(echo $wc_l-1|bc)
+            wc_l_tail=$(echo $wc_l_head-5|bc)
+            cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
+            cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
+            # To see why and if tshark still does in such way that this work, maybe sometime
+            # in the future, reverse the commenting of these two lines below in particular, and investigate
+            rm ${dump}_s$INDEX.raw*
+            echo "Extracted:"
+            ls -l ${dump}_s$INDEX.bin
+        fi
     
-        #ls -l ${dump}_s$INDEX.raw
-        cat ${dump}_s$INDEX.raw \
-        | grep -A1000000000 =================================================================== \
-        > ${dump}_s$INDEX.raw.CLEAN ;
-        wc_l=$(cat ${dump}_s$INDEX.raw.CLEAN | wc -l) ; #echo $wc_l;
-        wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
-        wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
-        cat ${dump}_s$INDEX.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s$INDEX.raw.FINAL;
-        #ls -l ${dump}_s$INDEX.raw.CLEAN  ${dump}_s$INDEX.raw.FINAL;
-        cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
-        # To see why and if tshark still does in such way that this work, maybe sometime
-        # in the future, reverse the commenting of these two lines below in particular, and investigate
-        rm ${dump}_s$INDEX.raw*
-        echo "Extracted:"
-        ls -l ${dump}_s$INDEX.bin
-    
-        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt"
-        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s$INDEX.txt
-        echo "Extracted:"
-        ls -l ${dump}_s$INDEX.txt
+        if [ ! -e "${dump}_s$INDEX.txt" ]; then
+            ls -l ${dump}_s$INDEX.txt
+                    echo "(should see \"No such file or directory just above\")"
+            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.txt"
+            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,tcp,ascii,$i | grep -E '[[:print:]]' > ${dump}_s$INDEX.txt
+            echo "Extracted:"
+            ls -l ${dump}_s$INDEX.txt
+        fi
     fi
     if [ ! -e  ".skip_TLS_stream" ]; then
-        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw"
-        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.raw
+        if [ ! -e "${dump}_s${INDEX}-ssl.raw" ] && [ ! -e "${dump}_s${INDEX}-ssl.bin" ]; then
+            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.raw"
+            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -T fields -e data -qz follow,ssl,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.raw
+         
+            cat ${dump}_s${INDEX}-ssl.raw \
+            | grep -A1000000000 =================================================================== \
+            > ${dump}_s${INDEX}-ssl.raw.CLEAN ;
+            wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
+            wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
+            wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
+            cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
+            #ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
+            cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
+            # To see why and if tshark still does in such way that this work, maybe sometime
+            # in the future, reverse the commenting of these two lines below in particular, and investigate
+            rm ${dump}_s${INDEX}-ssl.raw*
+            echo "Extracted:"
+            ls -l ${dump}_s$INDEX-ssl.bin
+        fi
 
-        cat ${dump}_s${INDEX}-ssl.raw \
-        | grep -A1000000000 =================================================================== \
-        > ${dump}_s${INDEX}-ssl.raw.CLEAN ;
-        wc_l=$(cat ${dump}_s${INDEX}-ssl.raw.CLEAN | wc -l) ; #echo $wc_l;
-        wc_l_head=$(echo $wc_l-1|bc); #echo $wc_l_head;
-        wc_l_tail=$(echo $wc_l_head-5|bc); #echo $wc_l_tail;
-        cat ${dump}_s${INDEX}-ssl.raw.CLEAN | head -$wc_l_head|tail -$wc_l_tail > ${dump}_s${INDEX}-ssl.raw.FINAL;
-        #ls -l ${dump}_s${INDEX}-ssl.raw.CLEAN  ${dump}_s${INDEX}-ssl.raw.FINAL;
-        cat ${dump}_s${INDEX}-ssl.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl.bin
-        # To see why and if tshark still does in such way that this work, maybe sometime
-        # in the future, reverse the commenting of these two lines below in particular, and investigate
-        rm ${dump}_s${INDEX}-ssl.raw*
-        echo "Extracted:"
-        ls -l ${dump}_s$INDEX-ssl.bin
-        #read FAKE
-
-        echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt"
-        $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > "${dump}"_s${INDEX}-ssl.txt
-        echo "Extracted:"
-        ls -l ${dump}_s$INDEX-ssl.txt
+        if [ ! -e "${dump}_s${INDEX}-ssl.txt" ]; then
+            echo "$TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.txt"
+            $TSHARK -o "tls.keylog_file: $KEYLOGFILE" -r "$dump.$ext" -qz follow,ssl,ascii,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl.txt
+            echo "Extracted:"
+            ls -l ${dump}_s$INDEX-ssl.txt
+        fi
     fi
 done
