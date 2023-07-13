@@ -51,7 +51,7 @@
 # Released under BSD license, pls. see LICENSE, attached to this script (if
 # not, it's under a generic BSD license, which is completely GNU-compatible)
 #
-# Copyright (c) 2016, 2021, 2022 Croatia Fidelis, Miroslav Rovis, www.CroatiaFidelis.hr
+# Copyright (c) 2016,2021,2022,,2023 Croatia Fidelis, Miroslav Rovis, <https://www.CroatiaFidelis.hr>
 #
 
 # TIP: If you issue a redirection to the very command issued when starting the
@@ -67,6 +67,8 @@
 # they ran, as it would be a boon for newbies to learn: the commands from the
 # logs could then be copied and pasted and run separately. Too much work,
 # echoed only some...
+
+. /home/$USER/.tshark_hosts_conv.conf
 
 function show_help {
   echo "tshark-streams.sh - Extract TCP/SSL streams from \$PCAP_FILE"
@@ -136,8 +138,26 @@ ext=${PCAP_FILE##*.}
 dump=${PCAP_FILE%*.pcap}
 echo \$ext: $ext
 echo \$dump: $dump
-filename=$dump.$ext
-echo \$filename: $filename
+
+pcap_size=$(ls -lL --time-style=posix-long-iso $dump.$ext | awk '{print $5}')
+echo \$pcap_size: $pcap_size
+#read NOP
+if [ "$pcap_size_limit_do_anyway" == "y" ]; then
+    : # user decided to work this large $dump.$ext
+else
+    if [ "$pcap_size" -gt "$pcap_size_limit" ]; then
+        echo "\$pcap_size larger then $pcap_size_limit (set in /home/$USER/.tshark_hosts_conv.conf):"
+        echo "############################################################"
+        echo "Generally it is better to preprocess/filter larger \$dump.\$ext before work"
+        echo "I.e. we won't work this file: "
+        ls -l $dump.$ext
+        echo "set pcap_size_limit_do_anyway to y and run ${0##*/} on $dump.$ext again"
+        echo "          if you really want to work it.              "
+        echo "          (${0##*/} is exiting)              " |& tee -a $tHostsConvLog
+        exit 0
+        echo "############################################################"
+    fi
+fi
 
 # Used to be (2 ln):
 #   WIRESHARK_RUN_FROM_BUILD_DIRECTORY=1
@@ -309,35 +329,52 @@ for i in $STREAMS; do
             echo "Extracted:"
             ls -l ${dump}_s$INDEX-ssl.txt
         fi
-        echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -Y \"tcp.stream==$i\" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq"
-        $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -Y "tcp.stream==$i" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq > ${dump}_s${INDEX}_h2.ls-1
-        if [ ! -s "${dump}_s${INDEX}_h2.ls-1" ]; then
-            rm -v ${dump}_s${INDEX}_h2.ls-1
+        if ( grep ${dump}_s${INDEX}_h2.ls-1 ${dump}_streams_h2_EMPTY.ls-1 ); then
+            echo "(grep ${dump}_s${INDEX}_h2.ls-1 ${dump}_streams_h2_EMPTY.ls-1)"
+            echo "is sempty, not working it"
+            continue
+        fi
+        if [ -e "${dump}_s${INDEX}_h2.ls-1" ] && [ -s "${dump}_s${INDEX}_h2.ls-1" ]; then
+            ls -l ${dump}_s${INDEX}_h2.ls-1
+            echo "apparently already done"
+            continue
+        fi
+        if [ ! -e ".${dump}_s${INDEX}_h2.ls-1.lock" ]; then
+            touch .${dump}_s${INDEX}_h2.ls-1.lock
+            echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -Y \"tcp.stream==$i\" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq"
+            $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -Y "tcp.stream==$i" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq > ${dump}_s${INDEX}_h2.ls-1
+            if [ ! -s "${dump}_s${INDEX}_h2.ls-1" ]; then
+                echo ${dump}_s${INDEX}_h2.ls-1 >> ${dump}_streams_h2_EMPTY.ls-1
+                rm -v ${dump}_s${INDEX}_h2.ls-1
+            else
+                H2_STREAMS=$(<${dump}_s${INDEX}_h2.ls-1)
+                echo \$H2_STREAMS: $H2_STREAMS
+                for h2 in $H2_STREAMS; do 
+                    echo \$i: $i
+                    echo \$h2: $h2
+                    H2INDEX=`printf '%.3d' $h2`
+                    echo \$H2INDEX: $H2INDEX
+                    if [ ! -e "${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw" ] && [ ! -e "${dump}_s${INDEX}-ssl-h2-${H2INDEX}.bin" ]; then
+                        echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -T fields -e data -qz \"follow,http2,raw,$i,$h2\" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw"
+                        $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e data -qz "follow,http2,raw,$i,$h2" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw
+                        ls -l ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw
+                        cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw \
+                        | grep -A1000000000 =================================================================== \
+                        > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN ;
+                        cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN | tail -n+6|head -n-1 > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL
+                        ls -l ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN  ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL
+                        cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.bin
+                        # To see why and if tshark still does in such way that this work, maybe sometime
+                        # in the future, comment out the line below, and investigate
+                        rm ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw*
+                        echo "Extracted:"
+                        ls -l ${dump}_s$INDEX-ssl-h2-${H2INDEX}.bin
+                    fi
+                done
+            fi
+            rm -v .${dump}_s${INDEX}_h2.ls-1.lock
         else
-            H2_STREAMS=$(<${dump}_s${INDEX}_h2.ls-1)
-            echo \$H2_STREAMS: $H2_STREAMS
-            for h2 in $H2_STREAMS; do 
-                echo \$i: $i
-                echo \$h2: $h2
-                H2INDEX=`printf '%.3d' $h2`
-                echo \$H2INDEX: $H2INDEX
-                if [ ! -e "${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw" ] && [ ! -e "${dump}_s${INDEX}-ssl-h2-${H2INDEX}.bin" ]; then
-                    echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -T fields -e data -qz \"follow,http2,raw,$i,$h2\" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw"
-                    $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e data -qz "follow,http2,raw,$i,$h2" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw
-                    ls -l ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw
-                    cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw \
-                    | grep -A1000000000 =================================================================== \
-                    > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN ;
-                    cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN | tail -n+6|head -n-1 > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL
-                    ls -l ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.CLEAN  ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL
-                    cat ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.bin
-                    # To see why and if tshark still does in such way that this work, maybe sometime
-                    # in the future, comment out the line below, and investigate
-                    rm ${dump}_s${INDEX}-ssl-h2-${H2INDEX}.raw*
-                    echo "Extracted:"
-                    ls -l ${dump}_s$INDEX-ssl-h2-${H2INDEX}.bin
-                fi
-            done
+            ls -l .${dump}_s${INDEX}_h2.ls-1.lock
         fi
     fi
 done
