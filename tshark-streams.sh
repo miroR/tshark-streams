@@ -1,9 +1,8 @@
 #!/bin/bash
 #
-# You should probably be able to find the old version this program at:
+# You should probably be able to find this program at:
 #
 # https://github.com/miroR/tshark-streams.git
-# I'll publish the current version somewhere libre-place, some day.
 #
 # I initially figured out how to extract tcp streams reading:
 # http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
@@ -24,8 +23,6 @@
 # As far as decrypting your own captures, first you have to make them. You may
 # be interested to see how I do it at:
 # https://github.com/miroR/uncenz
-# although that's an old version of uncenz that I don't use anymore. I'll
-# publish improved uncenz which I use daily somewhere libre-place, some day.
 #
 # How I started this script is all in this Gentoo Forums topic:
 # How to extract content from tshark-saved streams?
@@ -42,11 +39,7 @@
 # http://www.CroatiaFidelis.hr/foss/cap/cap-150927-TLS-why-js/Add-151119/
 #
 # However, neither of those two old scripts, in case you got here via those,
-# neither the initial one, that is now named:
-#
-# tshark-streams-INCOMPLETE.sh
-#
-# and not either the first improved version, should be used anymore at all.
+# neither the initial one, should be used anymore at all.
 #
 # Released under BSD license, pls. see LICENSE, attached to this script (if
 # not, it's under a generic BSD license, which is completely GNU-compatible)
