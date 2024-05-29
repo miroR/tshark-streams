@@ -61,7 +61,8 @@
 # logs could then be copied and pasted and run separately. Too much work,
 # echoed only some...
 
-. /home/$USER/.tshark_hosts_conv.conf
+# necessary for pcap_size_limit:
+. /home/$USER/.tshark_streams.conf
 
 function show_help {
   echo "tshark-streams.sh - Extract TCP/SSL streams from \$PCAP_FILE"
