@@ -12,7 +12,7 @@
 # If neither of the options "-Y $DISPLAYFILTER" or -l "$STREAMSLIST" is given,
 # but only the -r "$PCAP_FILE" (and -k "$KEYLOGFILE" if there are TLS streams
 # in the $PCAP_FILE), this script will extract all tcp(/tls) streams from your
-# pcap file.
+# pcap file (-k "$KEYLOGFILE" may by implied if you system is set up for it).
 #
 # For the basics of TLS decryption see:
 # https://wiki.wireshark.org/TLS
@@ -36,15 +36,15 @@
 # tshark-streams.sh script in its original directory, where the first improved
 # version of this script is too:
 #
-# http://www.CroatiaFidelis.hr/foss/cap/cap-150927-TLS-why-js/Add-151119/
+# https://www.CroatiaFidelis.hr/foss/cap/cap-150927-TLS-why-js/Add-151119/
 #
 # However, neither of those two old scripts, in case you got here via those,
 # neither the initial one, should be used anymore at all.
 #
 # Released under BSD license, pls. see LICENSE, attached to this script (if
-# not, it's under a generic BSD license, which is completely GNU-compatible)
+# not, it's under a generic BSD license)
 #
-# Copyright (c) 2016,2021,2022,,2023 Croatia Fidelis, Miroslav Rovis, <https://www.CroatiaFidelis.hr>
+# Copyright (c) 2016,2021,2022,2023,2026 Croatia Fidelis, Miroslav Rovis, <https://www.CroatiaFidelis.hr>
 #
 
 # TIP: If you issue a redirection to the very command issued when starting the
@@ -175,7 +175,7 @@ fi
 if [ ! -z "$DISPLAYFILTER" ]; then
     echo \$DISPLAYFILTER: $DISPLAYFILTER
     if [ -e "$STREAMSLIST" ] && [ -s "$STREAMSLIST" ]; then
-       echo "We'll be using the existing \$STREAMSLIST:" 
+        echo "We'll be using the existing \$STREAMSLIST:" 
         ls -l $STREAMSLIST
         echo "(ls -l $STREAMSLIST)"
     else
@@ -192,7 +192,7 @@ if [ ! -z "$DISPLAYFILTER" ]; then
     ls -l ${dump}_streams.ls-1
     echo tail -2 ${dump}_streams.ls-1
     tail -2 ${dump}_streams.ls-1
-    echo "Hit Enter to continue!"
+    #echo "Hit Enter to continue!"
     echo "############################################################"
 
     if [ ! -z "$STREAMSLIST" ]; then
@@ -209,7 +209,7 @@ else
         echo "(ls -l \$STREAMSLIST)"
     fi
     if [ -e "$STREAMSLIST" ] && [ -s "$STREAMSLIST" ]; then
-       echo "We'll be using the existing \$STREAMSLIST:" 
+        echo "We'll be using the existing \$STREAMSLIST:" 
         ls -l $STREAMSLIST
         echo "(ls -l $STREAMSLIST)"
         STREAMS=$(<$STREAMSLIST)
@@ -238,11 +238,11 @@ else
         ls -l ${dump}_streams.ls-1
         echo tail -2 ${dump}_streams.ls-1
         tail -2 ${dump}_streams.ls-1
-        echo "Hit Enter to continue!"
+        #echo "Hit Enter to continue!"
         echo "############################################################"
         echo "In else 011"
     fi
-    #read FAKE
+    #read NOP
 fi
 
 > ${dump}_streams.ls-1_PREV #truncate, just in case
