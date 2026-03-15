@@ -64,6 +64,51 @@
 # necessary for pcap_size_limit:
 . /home/$USER/.tshark_streams.conf
 
+function ask()
+{
+    echo -n "$@" '[y/n] ' ; read ans
+    case "$ans" in
+        y*|Y*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Hardwired:
+script_name=${0##*/}
+script_name_d=$(echo $script_name|sed 's/\.sh//'|sed 's/\(.*\)/.\1-non-int/')
+non_int_d=/home/$USER/${script_name_d}
+echo \$non_int_d: $non_int_d
+non_int_chk=$(ls -1 $non_int_d)
+if [ -d "$non_int_d" ]; then
+    if [ "X${non_int_chk}" != "X" ]; then
+        echo -n "NOTIFICATION: "
+        echo "ls -l/d \$non_int_d | head/tail -2"
+        ls -l $non_int_d | head -2
+        ls -l $non_int_d | tail -2
+        ls -ld $non_int_d
+    else
+        echo "I.e.: \$non_int_d is empty. "
+        echo "You might be asked at each single non_int_q's line of ${0##*/}."
+    fi
+    echo "We wait 1 sec for visibility of above."
+    sleep 1
+    # Here user can issue Ctrl-Z and manually manipulate $non_int_d, then issue fg,
+    # or can quit and revise action to do.
+fi
+
+function non_int_q () {
+    mkdir -p $non_int_d
+    if [ ! -e "$1" ]; then
+        echo "$1 ?"
+        ask
+        if [ "$?" == 0 ]; then
+            touch $1
+            ls -l $1
+            sleep 0.8 # enough to notify the user of $1
+        fi
+    fi
+}
+
 function show_help {
   echo "tshark-streams.sh - Extract TCP/TLS streams from \$PCAP_FILE"
   echo "Usage: ${0##*/} -r <PCAP file> -k <tls.keylog_file> -l <list-of-streams> -Y <single-stream>"
@@ -88,6 +133,8 @@ function show_help {
   echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression)"
   echo ""
 }
+
+non_int_q $non_int_d/000-initial-non-interactive
 
 if [ $# -eq 0 ]; then
     show_help
@@ -135,7 +182,7 @@ echo \$dump: $dump
 
 pcap_size=$(ls -lL --time-style=posix-long-iso $dump.$ext | awk '{print $5}')
 echo \$pcap_size: $pcap_size
-#read NOP
+non_int_q $non_int_d/001-variables-echoed
 if [ "$pcap_size_limit_do_anyway" == "y" ]; then
     : # user decided to work this large $dump.$ext
 else
@@ -152,6 +199,7 @@ else
         echo "############################################################"
     fi
 fi
+non_int_q $non_int_d/002-past-size-limit
 
 # Used to be (2 ln):
 #   WIRESHARK_RUN_FROM_BUILD_DIRECTORY=1
@@ -168,10 +216,10 @@ if [ ! -n "$STREAMSLIST" ]; then
         ls -l $STREAMSLIST
         echo "(ls -l $STREAMSLIST)"
     else
-        echo "There is no:"
-        echo "              ${dump}_streams.ls-1"
+        echo "There is no \${dump}_streams.ls-1:"
     fi
 fi
+non_int_q $non_int_d/003-past-streams-ls-1-check
 if [ ! -z "$DISPLAYFILTER" ]; then
     echo \$DISPLAYFILTER: $DISPLAYFILTER
     if [ -e "$STREAMSLIST" ] && [ -s "$STREAMSLIST" ]; then
@@ -183,7 +231,7 @@ if [ ! -z "$DISPLAYFILTER" ]; then
     fi 
     if [ -e "${dump}_streams.ls-1" ] && [ -s "${dump}_streams.ls-1" ]; then
         # backing up the list of stream numbers if previously made
-        cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+        cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1.PREV
     fi
     echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
     echo "############################################################"
@@ -193,13 +241,20 @@ if [ ! -z "$DISPLAYFILTER" ]; then
     echo tail -2 ${dump}_streams.ls-1
     tail -2 ${dump}_streams.ls-1
     #echo "Hit Enter to continue!"
+    if [ -e "${dump}_streams.ls-1.PREV" ]; then
+        if ( diff ${dump}_streams.ls-1 ${dump}_streams.ls-1.PREV ); then
+            mv -v ${dump}_streams.ls-1.PREV ${dump}_streams.ls-1
+        fi
+    fi
     echo "############################################################"
 
     if [ ! -z "$STREAMSLIST" ]; then
         echo \$STREAMSLIST: $STREAMSLIST
         STREAMS=$(<$STREAMSLIST)
     fi
+    non_int_q $non_int_d/008-end-if-displayfilter
 else
+    non_int_q $non_int_d/009-start-if-displayfilter-not
     if [ -e "${dump}_streams.ls-1" ]; then
         ls -l ${dump}_streams.ls-1
         echo "(ls -l \${dump}_streams.ls-1)"
@@ -224,12 +279,12 @@ else
         STREAMS=$(<$STREAMSLIST)
         if [ -e "${dump}_streams.ls-1" ]; then
             # backing up the list of stream numbers if previously made
-            cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+            cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1.PREV
         fi
     else
         if [ -e "${dump}_streams.ls-1" ]; then
             # backing up the list of stream numbers if previously made
-            cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1_$(date +%s)
+            cp -av ${dump}_streams.ls-1 ${dump}_streams.ls-1.PREV
         fi
         echo $STREAMS | tr ' ' '\012' > ${dump}_streams.ls-1
         echo "############################################################"
@@ -238,37 +293,45 @@ else
         ls -l ${dump}_streams.ls-1
         echo tail -2 ${dump}_streams.ls-1
         tail -2 ${dump}_streams.ls-1
-        #echo "Hit Enter to continue!"
+        non_int_q $non_int_d/015-exist-streams-ls-1
         echo "############################################################"
         echo "In else 011"
     fi
-    #read NOP
+    if [ -e "${dump}_streams.ls-1.PREV" ]; then
+        if ( diff ${dump}_streams.ls-1 ${dump}_streams.ls-1.PREV ); then
+            mv -v ${dump}_streams.ls-1.PREV ${dump}_streams.ls-1
+        fi
+    fi
+    non_int_q $non_int_d/020-end-if-displayfilter-not
 fi
 
-> ${dump}_streams.ls-1_PREV #truncate, just in case
+> ${dump}_streams.ls-1_DONE #truncate, just in case
 # One loop to list existing streams if any
 for i in $STREAMS; do 
     INDEX=`printf '%.3d' $i`
     for stream_file in ${dump}_s$INDEX.raw ${dump}_s$INDEX.raw.CLEAN ${dump}_s$INDEX.raw.FINAL ${dump}_s$INDEX.bin \
         ${dump}_s$INDEX.txt ${dump}_s$INDEX-tls.txt ; do
+        # not checking for -s $stream_file here, as if HTTP, the empty -tls.{bin,txt} may already been worked
         if [ -e "$stream_file" ]; then
             if ( echo $stream_file|grep '\.raw' ); then
                 rm -iv $stream_file
             else
-                echo $stream_file >> ${dump}_streams.ls-1_PREV
+                echo $stream_file >> ${dump}_streams.ls-1_DONE
             fi
         fi
     done
+    non_int_q $non_int_d/022-stream-file-raw
 done
-cat ${dump}_streams.ls-1_PREV
-echo "(cat ${dump}_streams.ls-1_PREV)"
-ls -l ${dump}_streams.ls-1_PREV
-echo "(ls -l ${dump}_streams.ls-1_PREV)"
-#rm -v .skip_non-TLS_stream .skip_TLS_stream
+cat ${dump}_streams.ls-1_DONE
+echo "(cat ${dump}_streams.ls-1_DONE)"
+ls -l ${dump}_streams.ls-1_DONE
+echo "(ls -l ${dump}_streams.ls-1_DONE)"
+non_int_q $non_int_d/030-streams-ls-1-done
 echo "You can now set either:"
 echo ".skip_non-TLS_stream (type nt)"
 echo ".skip_TLS_stream (type st)"
-#read skipping
+#TO_DO make this work but only in non-interactive
+non_int_q $non_int_d/040-befor-set-skip
 if [ "$skipping" == "nt" ]; then touch .skip_non-TLS_stream ; ls -l .skip_non-TLS_stream ; fi
 if [ "$skipping" == "st" ]; then touch .skip_TLS_stream ; ls -l .skip_TLS_stream ; fi
 for i in $STREAMS; do 
@@ -287,6 +350,7 @@ for i in $STREAMS; do
             cat ${dump}_s$INDEX.raw.FINAL | xxd -r -p > ${dump}_s$INDEX.bin
             # To see why and if tshark still does in such way that this work, maybe sometime
             # in the future, comment out the line below, and investigate
+            non_int_q $non_int_d/050-befor-rm-index-raw
             rm ${dump}_s$INDEX.raw*
             echo "Extracted:"
             ls -l ${dump}_s$INDEX.bin
@@ -312,9 +376,11 @@ for i in $STREAMS; do
             cat ${dump}_s${INDEX}-tls.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-tls.bin
             # To see why and if tshark still does in such way that this work, maybe sometime
             # in the future, comment out the line below, and investigate
+            non_int_q $non_int_d/060-befor-rm-index-raw-all
             rm ${dump}_s${INDEX}-tls.raw*
             echo "Extracted:"
             ls -l ${dump}_s$INDEX-tls.bin
+            non_int_q $non_int_d/070-tls-bin
         fi
 
         if [ ! -e "${dump}_s${INDEX}-tls.txt" ]; then
@@ -322,6 +388,7 @@ for i in $STREAMS; do
             $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -qz follow,tls,ascii,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-tls.txt
             echo "Extracted:"
             ls -l ${dump}_s$INDEX-tls.txt
+            non_int_q $non_int_d/080-tls-txt
         fi
         if ( grep ${dump}_s${INDEX}_h2.ls-1 ${dump}_streams_h2_EMPTY.ls-1 ); then
             echo "(grep ${dump}_s${INDEX}_h2.ls-1 ${dump}_streams_h2_EMPTY.ls-1)"
@@ -329,40 +396,26 @@ for i in $STREAMS; do
             continue
         fi
         echo \$INDEX: $INDEX
-        echo \$PREVIOUS_h2: $PREVIOUS_h2
+        #echo \$PREVIOUS_h2: $PREVIOUS_h2
         #read NOP
-        if [ "$INDEX" != "$PREVIOUS_h2" ]; then
-            if [ -e "${dump}_s${INDEX}_h2.ls-1" ] && [ -s "${dump}_s${INDEX}_h2.ls-1" ]; then 
-                ls -l ${dump}_s${INDEX}_h2.ls-1
-                echo "apparently already done"
-                continue
-            fi
-        else
-            echo "\$PREVIOUS_h2: $PREVIOUS_h2 to reuse:"
-            ls -l ${dump}_s${INDEX}_h2.ls-1
-            #read NOP
-        fi
         #if [ -e "${dump}_s${INDEX}_h2.ls-1" ]; then
         #    cp -av ${dump}_s${INDEX}_h2.ls-1 ${dump}_s${INDEX}_h2.ls-1_$(date +%s)
         #fi
         #touch .${dump}_s${INDEX}_h2.ls-1.lock
-        if [ "$INDEX" == "$PREVIOUS_h2" ]; then
-            echo \$INDEX: $INDEX
-            echo \$PREVIOUS_h2: $PREVIOUS_h2
-            if [ "${dump}_s${INDEX}_h2.ls-1" ] &&  [ -s "${dump}_s${INDEX}_h2.ls-1" ]; then
-                ls -l ${dump}_s${INDEX}_h2.ls-1
-                echo "set to reuse by variable PREVIOUS_h2 set to ${INDEX}"
-            fi
-            #read NOP
-        else
+        if [ ! -e "${dump}_s${INDEX}_h2.ls-1" ] && !( grep -q ${dump}_s${INDEX}_h2.ls-1 ${dump}_streams_h2_EMPTY.ls-1 ) && \
+            [ ! -e ".${dump}_s${INDEX}_h2.ls-1.lock" ]; then
+            touch .${dump}_s${INDEX}_h2.ls-1.lock
+            non_int_q $non_int_d/090-h2-lock-work-index
             echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -Y \"tcp.stream==$i\" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq"
             $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -Y "tcp.stream==$i" -T fields -e http2.streamid | tr ',' '\12' | sort -n | grep '[[:print:]]' | uniq > ${dump}_s${INDEX}_h2.ls-1
+            if [ ! -s "${dump}_s${INDEX}_h2.ls-1" ]; then
+                echo ${dump}_s${INDEX}_h2.ls-1 >> ${dump}_streams_h2_EMPTY.ls-1
+                rm -v ${dump}_s${INDEX}_h2.ls-1
+                non_int_q $non_int_d/092-h2-empty
+            fi
+            rm -v .${dump}_s${INDEX}_h2.ls-1.lock
         fi
-        #rm -v .${dump}_s${INDEX}_h2.ls-1.lock
-        if [ ! -s "${dump}_s${INDEX}_h2.ls-1" ]; then
-            echo ${dump}_s${INDEX}_h2.ls-1 >> ${dump}_streams_h2_EMPTY.ls-1
-            rm -v ${dump}_s${INDEX}_h2.ls-1
-        else
+        if [ -s "${dump}_s${INDEX}_h2.ls-1" ] && [ ! -e ".${dump}_s${INDEX}_h2.ls-1.lock" ]; then
             H2_STREAMS=$(<${dump}_s${INDEX}_h2.ls-1)
             echo \$H2_STREAMS: $H2_STREAMS
             for h2 in $H2_STREAMS; do 
@@ -372,6 +425,7 @@ for i in $STREAMS; do
                 echo \$H2INDEX: $H2INDEX
                 if [ ! -e "${dump}_s${INDEX}-tls-h2-${H2INDEX}.raw" ] && [ ! -e "${dump}_s${INDEX}-tls-h2-${H2INDEX}.bin" ] && [ ! -e ".${dump}_s${INDEX}-tls-h2-${H2INDEX}.lock" ]; then
                     touch .${dump}_s${INDEX}-tls-h2-${H2INDEX}.lock
+                    non_int_q $non_int_d/094-h2index-lock
                     echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -T fields -e data -qz \"follow,http2,raw,$i,$h2\" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-tls-h2-${H2INDEX}.raw"
                     $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e data -qz "follow,http2,raw,$i,$h2" | grep -E '[[:print:]]' > ${dump}_s${INDEX}-tls-h2-${H2INDEX}.raw
                     ls -l ${dump}_s${INDEX}-tls-h2-${H2INDEX}.raw
@@ -391,4 +445,5 @@ for i in $STREAMS; do
             done
         fi
     fi
+    non_int_q $non_int_d/099-befor-loop-item-end
 done
