@@ -4,15 +4,12 @@
 #
 # https://github.com/miroR/tshark-streams.git
 #
-# I initially figured out how to extract tcp streams reading:
-# http://heapspray.net/post/using-tshark-to-view-raw-socket-streams/
-#
-# Apart from a recent Wireshark install, xxd is needed.
+# Apart from a recent Wireshark/tshark install, xxd is needed.
 #
 # If neither of the options "-Y $DISPLAYFILTER" or -l "$STREAMSLIST" is given,
 # but only the -r "$PCAP_FILE" (and -k "$KEYLOGFILE" if there are TLS streams
 # in the $PCAP_FILE), this script will extract all tcp(/tls) streams from your
-# pcap file (-k "$KEYLOGFILE" may by implied if you system is set up for it).
+# pcap file (-k "$KEYLOGFILE" may by implied if you $SSLKEYLOGILE is set right).
 #
 # For the basics of TLS decryption see:
 # https://wiki.wireshark.org/TLS
@@ -24,45 +21,24 @@
 # be interested to see how I do it at:
 # https://github.com/miroR/uncenz
 #
-# How I started this script is all in this Gentoo Forums topic:
-# How to extract content from tshark-saved streams?
-# https://forums.gentoo.org/viewtopic-t-1033844.html
-#
-# and in a wireshark-users mailing list lonely thread:
-# [Wireshark-users] follow [tcp|tls].stream with tshark 
-# https://www.wireshark.org/lists/wireshark-users/201511/msg00033.html 
-#
-# For the understanding of that topic and that thread I leave the old
-# tshark-streams.sh script in its original directory, where the first improved
-# version of this script is too:
-#
-# https://www.CroatiaFidelis.hr/foss/cap/cap-150927-TLS-why-js/Add-151119/
-#
-# However, neither of those two old scripts, in case you got here via those,
-# neither the initial one, should be used anymore at all.
+# Checkout some previous version up to early 2026 for some old less important
+# links and tips related to this script.
 #
 # Released under BSD license, pls. see LICENSE, attached to this script (if
-# not, it's under a generic BSD license)
+# not, the license is generic BSD)
 #
 # Copyright (c) 2016,2021,2022,2023,2026 Croatia Fidelis, Miroslav Rovis, <https://www.CroatiaFidelis.hr>
 #
 
-# TIP: If you issue a redirection to the very command issued when starting the
-# script, something like these commented-out lines:
-# tshlog=tsh-$(date +%y%m%d_%H%M).log # (tshlog for "tshark log")
-# export tshlog
-# touch $tshlog
-# echo "\$tshlog: $tshlog"
-# ls -l $tshlog
-# and then start this script with:
-# tshark-streams.sh -r <pcap-file> <...> |& tee $tshlog
-# you get it all logged, Could be useful, if I echoed all the commands before
-# they ran, as it would be a boon for newbies to learn: the commands from the
-# logs could then be copied and pasted and run separately. Too much work,
-# echoed only some...
-
-# necessary for pcap_size_limit:
-. /home/$USER/.tshark_streams.conf
+# Traces that, relative to available computing power, are too large, need to be
+# split to be worked. Today all is mostly TLS, so mostly only splitting by
+# streams allows for analysis. This script allows only for limiting traces to
+# be worked to those under $pcap_size_limit set to some value (e.g.
+# pcap_size_limit=1000000000 works only traces that are less than 1G in size),
+# on the command line or in:
+if [ -e "/home/$USER/.tshark_streams.conf" ]; then
+    . /home/$USER/.tshark_streams.conf
+fi
 
 function ask()
 {
@@ -72,6 +48,68 @@ function ask()
         *) return 1 ;;
     esac
 }
+
+function show_help {
+  echo "tshark-streams.sh - Extract TCP/TLS streams from \$PCAP_FILE"
+  echo "Usage: ${0##*/} -r <PCAP file> -k <tls.keylog_file> -l <list-of-streams> -Y <single-stream>"
+  echo ""
+  echo -e "    \tIf neither -Y nor -l are given, attempt is made to extract all streams"
+  echo -e "    \tNOTE: the -Y and -l are mutually exclusive"
+  echo ""
+  echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone); see below"
+  echo -e "    \tfor particular uses though"
+  echo -e "    -k give the filename with the CLIENT_RANDOM or"
+  echo -e "    \tCLIENT_HANDSHAKE_TRAFFIC_SECRET and related... lines that belong to"
+  echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
+  echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (which can be"
+  echo -e "    \t/home/<you>/.sslkey.log or some other) used during Pale Moon,"
+  echo -e "    \tFirefox or some other NSS supporting browser's run, all properly set,"
+  echo -e "    \tthen you don't need to set this flag"
+  echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
+  echo -e "    \t\${dump}_streams.ls-1 file gotten from, maybe interrupted"
+  echo -e "    \tall-extraction run to pick from)"
+  echo -e "    -Y a single stream number display filter (see 'man tshark', exampli gratia:"
+  echo -e "    \t -Y \"tcp.stream==N\" where N is a number from among the available"
+  echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression)"
+  echo -e "    -d primitive debugging hooks come to work, pls. read the script"
+  echo ""
+}
+
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
+# Reset in case getopts has been used previously in the shell.
+OPTIND=1
+DISPLAYFILTER=""
+STREAMSLIST=""
+KEYLOGFILE=""
+
+while getopts "h?r:dY:l:k:" opt; do
+    case "$opt" in
+    h|\?)
+        show_help
+        exit 0
+        ;;
+    r)  PCAP_FILE=$OPTARG
+        echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
+        ;;
+    d)  export DEBUG="y"
+        echo \$DEBUG: $DEBUG
+        non_int_q $non_int_d/0005-debug-set
+        ;;
+    Y)  DISPLAYFILTER=$OPTARG
+        echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
+        ;;
+    l)  STREAMSLIST=$OPTARG
+        echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
+        ;;
+    k)  KEYLOGFILE=$OPTARG
+    echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
+        ;;
+    esac
+done
 
 # Hardwired:
 script_name=${0##*/}
@@ -97,76 +135,21 @@ if [ -d "$non_int_d" ]; then
 fi
 
 function non_int_q () {
-    mkdir -p $non_int_d
-    if [ ! -e "$1" ]; then
-        echo "$1 ?"
-        ask
-        if [ "$?" == 0 ]; then
-            touch $1
-            ls -l $1
-            sleep 0.8 # enough to notify the user of $1
+    if [ "$DEBUG" == "y" ]; then
+        mkdir -p $non_int_d
+        if [ ! -e "$1" ]; then
+            echo "$1 ?"
+            ask
+            if [ "$?" == 0 ]; then
+                touch $1
+                ls -l $1
+                sleep 0.8 # enough to notify the user of $1
+            fi
         fi
     fi
 }
 
-function show_help {
-  echo "tshark-streams.sh - Extract TCP/TLS streams from \$PCAP_FILE"
-  echo "Usage: ${0##*/} -r <PCAP file> -k <tls.keylog_file> -l <list-of-streams> -Y <single-stream>"
-  echo ""
-  echo -e "    \tIf neither -Y nor -l are given, attempt is made to extract all streams"
-  echo -e "    \tNOTE: the -Y and -l are mutually exclusive"
-  echo ""
-  echo -e "    -r \$PCAP_FILE is mandatory (but may not do it alone); see below"
-  echo -e "    \tfor particular uses though"
-  echo -e "    -k give the filename with the CLIENT_RANDOM or"
-  echo -e "    \tCLIENT_HANDSHAKE_TRAFFIC_SECRET and related... lines that belong to"
-  echo -e "    \tthe sessions in the PCAP. If those have been logged in the file"
-  echo -e "    \tdesignated by the \$SSLKEYLOGFILE environment variable (which can be"
-  echo -e "    \t/home/<you>/.sslkey.log or some other) used during"
-  echo -e "    \tFirefox or some other NSS supporting browser's run, all properly set,"
-  echo -e "    \tthen you don't need to set this flag"
-  echo -e "    -l a list of streams' numbers, one per line, to extract (can use the"
-  echo -e "    \t\${dump}_streams.ls-1 file gotten from, maybe interrupted"
-  echo -e "    \tall-extraction run to pick from)"
-  echo -e "    -Y a single stream number display filter (see 'man tshark', exampli gratia:"
-  echo -e "    \t -Y \"tcp.stream==N\" where N is a number from among the available"
-  echo -e "    \tfor your \$PCAP_FILE (you need to enter the whole expression)"
-  echo ""
-}
-
 non_int_q $non_int_d/000-initial-non-interactive
-
-if [ $# -eq 0 ]; then
-    show_help
-    exit 0
-fi
-
-# Reset in case getopts has been used previously in the shell.
-OPTIND=1
-DISPLAYFILTER=""
-STREAMSLIST=""
-KEYLOGFILE=""
-
-while getopts "h?r:Y:l:k:" opt; do
-    case "$opt" in
-    h|\?)
-        show_help
-        exit 0
-        ;;
-    r)  PCAP_FILE=$OPTARG
-    echo "gives: -r $PCAP_FILE (\$PCAP_FILE); since \$OPTARG: $OPTARG"
-        ;;
-    Y)  DISPLAYFILTER=$OPTARG
-    echo "gives: -Y $DISPLAYFILTER (\$DISPLAYFILTER); since \$OPTARG: $OPTARG"
-        ;;
-    l)  STREAMSLIST=$OPTARG
-    echo "gives: -l $STREAMSLIST (\$STREAMSLIST); since \$OPTARG: $OPTARG"
-        ;;
-    k)  KEYLOGFILE=$OPTARG
-    echo "gives: -k $KEYLOGFILE (\$KEYLOGFILE); since \$OPTARG: $OPTARG"
-        ;;
-    esac
-done
 
 echo \$SSLKEYLOGFILE: $SSLKEYLOGFILE
 if [ "$KEYLOGFILE" == "" ]; then
