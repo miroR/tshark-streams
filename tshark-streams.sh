@@ -350,11 +350,8 @@ for i in $STREAMS; do
         if [ ! -e "${dump}_s${INDEX}-tls.raw" ] && [ ! -e "${dump}_s${INDEX}-tls.bin" ]; then
             echo "$TSHARK -otls.keylog_file:$KEYLOGFILE -r \"$dump.$ext\" -T fields -e data -qz follow,tls,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-tls.raw"
             $TSHARK -otls.keylog_file:$KEYLOGFILE -r "$dump.$ext" -T fields -e data -qz follow,tls,raw,$i | grep -E '[[:print:]]' > ${dump}_s${INDEX}-tls.raw
-         
-            cat ${dump}_s${INDEX}-tls.raw \
-            | grep -A1000000000 =================================================================== \
-            > ${dump}_s${INDEX}-tls.raw.CLEAN ;
-            cat ${dump}_s${INDEX}-tls.raw.CLEAN | tail -n+6|head -n-1 > ${dump}_s${INDEX}-tls.raw.FINAL;
+            cat ${dump}_s${INDEX}-tls.raw | sed 's/^Follow: .*\|^Filter: .*\|Node 0: .*\|Node 1: .*\|===================================================================//g' \
+                | grep '[[:print:]]' > ${dump}_s${INDEX}-tls.raw.FINAL
             #ls -l ${dump}_s${INDEX}-tls.raw.CLEAN  ${dump}_s${INDEX}-tls.raw.FINAL;
             cat ${dump}_s${INDEX}-tls.raw.FINAL | xxd -r -p > ${dump}_s${INDEX}-tls.bin
             # To see why and if tshark still does in such way that this work, maybe sometime
